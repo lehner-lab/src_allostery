@@ -18,7 +18,7 @@ Here you'll find source code for computational analyses and to reproduce the fig
 
 To run the Stop_codon_readthrough pipeline you will need the following software and associated packages:
 
-* **[_R_](https://www.r-project.org/)** (dplyr, stringr, stringi, GGally, ggpubr, ggplot2, viridis, tidyverse, seqinr, matrixStats, data.table, rtracklayer, openxlsx, reshape2, caret, hexbin, png, grid, gridExtra, MuMIn, tidyr, rstatix, ggridges, hrbrthemes, glmnet, spgs)
+* **[_R_](https://www.r-project.org/)** (list packages separated by commas)
 
 # Required Data
 
