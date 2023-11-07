@@ -25,7 +25,7 @@ Make sure you have git and conda installed and then run (expected install time <
 
 ```
 # Install dependencies (preferably in a fresh conda environment)
-conda install -c conda-forge r-ggally, r-bio3d, r-data.table, r-ggplot2, r-ggpubr, r-gplots, r-msir, r-scales, r-viridis
+conda install -c conda-forge r-ggally r-bio3d r-data.table r-ggplot2 r-ggpubr r-gplots r-msir r-scales r-viridis
 ```
 
 # Usage
