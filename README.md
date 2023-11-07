@@ -11,7 +11,7 @@ Here you'll find source code for computational analyses and to reproduce the fig
 
 # Required Software
 
-To run the Stop_codon_readthrough pipeline you will need the following software and associated packages:
+To run the pipeline you will need the following software and associated packages:
 
 * **[_R_](https://www.r-project.org/)** (GGally, bio3d, data.table, ggplot2, ggpubr, gplots, msir, scales, viridis)
 
@@ -45,12 +45,12 @@ R Markdown files are meant to be run in the following order:
 
 # Additional scripts and software
 
-The following software packages are required for pre-processing of raw FASTQ files:
+If you wish to regenerate all the fitness scores and inferred energies from the raw FASTQ files, the following software packages are required:
 
 * **[DiMSum](https://github.com/lehner-lab/DiMSum) v1.2.9** (pipeline for pre-processing deep mutational scanning data i.e. FASTQ to fitness). Download the FastQ files from Sequence Read Archive (SRA) with accession number ####:link to your base directory (base_dir). Shell scripts to run Dimsum can be found in [Required Data](#required-data). Configuration files and additional scripts for running DiMSum are available in the "DiMSum" folder.
 
 The following software package is required to fit thermodynamic models to the fitness data (DiMSum output):
 
-* **[MoCHI](https://github.com/lehner-lab/MoCHI) v?.?.?** (pipeline to fit thermodynamic models to fitness data i.e. fitness to energies). In order to fit all 5 blocks of Src together, DiMSum fitness tables need to be modified to extend the sequence of each block to the full length Src sequence, and the sign of the kinase activity fitness assay needs to be changed due to the inverse relationship between fitness and activity in the activity assay. The original DiMSum output tables, the modified tables ready for MoCHI fitting, and shell scripts to execute MoCHI can be found in [Required Data](#required-data). 
+* **[MoCHI](https://github.com/lehner-lab/MoCHI) v?.?.?** (pipeline to fit thermodynamic models to fitness data i.e. fitness to energies). In order to fit all 5 blocks of Src together, DiMSum fitness tables need to be modified to extend the sequence of each block to the full length Src sequence, and the sign of the kinase activity fitness assay needs to be changed due to the inverse relationship between fitness and activity in the activity assay. The original DiMSum output tables, the code for modify them, the modified tables ready for MoCHI fitting, and shell scripts to execute MoCHI can be found in [Required Data](#required-data). 
 
 
