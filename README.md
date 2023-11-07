@@ -1,8 +1,3 @@
-# src_allostery
-Source code for analyses and to reproduce all figures in the following publication: The allosteric landscape of Src (Beltran et al., 2023)
-
-
-
 Welcome to the GitHub repository for the following publication: The allosteric landscape of the Src kinase (Beltran A & Lehner B, 2023)
 
 Here you'll find source code for computational analyses and to reproduce the figures in the paper.
