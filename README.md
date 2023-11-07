@@ -17,7 +17,7 @@ To run the Stop_codon_readthrough pipeline you will need the following software 
 
 # Required Data
 
-The read counts (DiMSum output), fitness scores, MoCHI weights, and required miscellaneous files should be downloaded from **[here](link)** and copied to an analysis_files folder in your project directory (named 'base_dir'). An output_files directory in which results files will be written should be created in 'base_dir'.
+The read counts (DiMSum output), fitness scores, MoCHI weights, and required miscellaneous files should be downloaded from **[here](link)** and copied to an 'analysis_files' folder in your project directory (named 'base_dir'). An 'output_files' directory in which results files will be written should be created in 'base_dir'.
 
 # Installation Instructions
 
