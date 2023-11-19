@@ -1,4 +1,4 @@
-Welcome to the GitHub repository for the following publication: The allosteric landscape of the Src kinase (Beltran A & Lehner B, 2023)
+Welcome to the GitHub repository for the following publication: The allosteric landscape of the Src kinase (Beltran A et al, 2023)
 
 Here you'll find source code for computational analyses and to reproduce the figures in the paper.
 
@@ -30,7 +30,7 @@ conda install -c conda-forge r-ggally r-bio3d r-data.table r-ggplot2 r-ggpubr r-
 
 # Usage
 
-The R Markdown files contain the code to reproduce the figures and results from the computational analyses described in the following publication: The allosteric landscape of the Src kinase (Beltran A & Lehner B, 2023). See [Required Data](#required-data) for instructions on how to obtain all required data and miscellaneous files before running the pipeline.
+The R Markdown files contain the code to reproduce the figures and results from the computational analyses described in the following publication: The allosteric landscape of the Src kinase (Beltran A et al, 2023). See [Required Data](#required-data) for instructions on how to obtain all required data and miscellaneous files before running the pipeline.
 
 R Markdown files are meant to be run in the following order:
 
