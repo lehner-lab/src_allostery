@@ -47,7 +47,7 @@ R Markdown files are meant to be run in the following order:
 
 If you wish to regenerate all the fitness scores and inferred energies from the raw FASTQ files, the following software packages are required:
 
-* **[DiMSum](https://github.com/lehner-lab/DiMSum) v1.2.9** (pipeline for pre-processing deep mutational scanning data i.e. FASTQ to fitness). Download the FastQ files from Sequence Read Archive (SRA) with accession number ####:link to your base directory (base_dir). Shell scripts to run Dimsum and configuration files can be found in the 'DiMSum' folder in [Required Data](#required-data).
+* **[DiMSum](https://github.com/lehner-lab/DiMSum) v1.2.9** (pipeline for pre-processing deep mutational scanning data i.e. FASTQ to fitness). Download the FastQ files from Gene Expression Omnibus (GEO) with accession number GSE247740:link to your base directory (base_dir). Shell scripts to run Dimsum and configuration files can be found in the 'DiMSum' folder in [Required Data](#required-data).
 
 The following software package is required to fit thermodynamic models to the fitness data (DiMSum output):
 
