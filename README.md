@@ -51,6 +51,6 @@ If you wish to regenerate all the fitness scores and inferred energies from the 
 
 The following software package is required to fit thermodynamic models to the fitness data (DiMSum output):
 
-* **[MoCHI](https://github.com/lehner-lab/MoCHI) v?.?.?** (pipeline to fit thermodynamic models to fitness data i.e. fitness to energies). In order to fit all 5 blocks of Src together, DiMSum fitness tables need to be modified to extend the sequence of each block to the full length Src sequence, and the sign of the kinase activity fitness assay needs to be changed due to the inverse relationship between fitness and activity in the activity assay. DiMSum output tables, the code to modify them, the modified tables ready for MoCHI fitting, and shell scripts to execute MoCHI can be found in the 'MoCHI' folder in [Required Data](#required-data). 
+* **[MoCHI](https://github.com/lehner-lab/MoCHI)** (pipeline to fit thermodynamic models to fitness data i.e. fitness to energies). In order to fit all 5 blocks of Src together, DiMSum fitness tables need to be modified to extend the sequence of each block to the full length Src sequence, and the sign of the kinase activity fitness assay needs to be changed due to the inverse relationship between fitness and activity in the activity assay. DiMSum output tables, the code to modify them, the modified tables ready for MoCHI fitting, and shell scripts to execute MoCHI can be found in the 'MoCHI' folder in [Required Data](#required-data). 
 
 
