@@ -1,0 +1,82 @@
+---
+title: "visualize mochi weights in ChimeraX"
+author: "Toni Beltran"
+date: "18/11/2023"
+output: html_document
+---
+
+```{r read data and compare backgrounds}
+
+library(ggplot2)
+library(data.table)
+
+base_dir="/Users/tbeltran/Desktop/cluster_work/54_final_github_and_zenodo_submissions/"
+
+setwd(base_dir)
+
+
+library(bio3d)
+
+#function to add mochi weights onto b-factor column in structure
+write_mochi_weights<-function(input_weights,offset,title,pdb_id){
+  weights<-fread(input_weights)
+  weights[,Pos_ref:=Pos_ref+offset]
+  
+  weights_summary<-weights[,list(wmean_kcalmol = weighted.mean(`mean_kcal/mol`,`std_kcal/mol`),
+                      mean_kcalmol = mean(`mean_kcal/mol`),
+                      max_kcalmol= max(`mean_kcal/mol`),
+                      min_kcalmol= min(`mean_kcal/mol`),
+                      maxabs_kcalmol= max(abs(`mean_kcal/mol`))),by=Pos_ref]
+  
+  #wmean weights
+  structure<-read.pdb(pdb_id)
+  for(i in 1:max(structure$atom$resno)){
+  structure$atom$b[structure$atom$resno==i & structure$atom$chain=="A"]<-0
+   }
+  for(i in min(weights$Pos_ref,na.rm=TRUE):max(weights$Pos_ref,na.rm = TRUE)){
+  structure$atom$b[structure$atom$resno==i &       structure$atom$chain=="A"]<-weights_summary[Pos_ref==i,]$wmean_kcalmol
+  }
+
+  write.pdb(structure,file=paste0("output_files/annotated_structures_",pdb_id,"_",title,"_wmean.pdb",collapse=""))
+  
+  
+  #max weights
+  structure<-read.pdb(pdb_id)
+  for(i in 1:max(structure$atom$resno)){
+  structure$atom$b[structure$atom$resno==i & structure$atom$chain=="A"]<-0
+   }
+  for(i in min(weights$Pos_ref,na.rm=TRUE):max(weights$Pos_ref,na.rm = TRUE)){
+  structure$atom$b[structure$atom$resno==i &       structure$atom$chain=="A"]<-weights_summary[Pos_ref==i,]$max_kcalmol
+  }
+
+  write.pdb(structure,file=paste0("output_files/annotated_structures_",pdb_id,"_",title,"_max.pdb",collapse=""))
+  
+
+  #min weights
+  structure<-read.pdb(pdb_id)
+  for(i in 1:max(structure$atom$resno)){
+  structure$atom$b[structure$atom$resno==i & structure$atom$chain=="A"]<-0
+   }
+  for(i in min(weights$Pos_ref,na.rm=TRUE):max(weights$Pos_ref,na.rm = TRUE)){
+  structure$atom$b[structure$atom$resno==i &       structure$atom$chain=="A"]<-weights_summary[Pos_ref==i,]$min_kcalmol
+  }
+
+  write.pdb(structure,file=paste0("output_files/annotated_structures_",pdb_id,"_",title,"_min.pdb",collapse=""))
+  
+
+}
+
+```
+
+```{r print pdb files with weights}
+
+write_mochi_weights("./analysis_files/MoCHI_weights/3state_KD_weights_Folding.txt",264,"3state_KD_abundance","2src")
+
+write_mochi_weights("./analysis_files/MoCHI_weights/3state_KD_weights_Activity.txt",264,"3state_KD_activity","2src")
+
+write_mochi_weights("./analysis_files/MoCHI_weights/3state_FL_weights_Folding.txt",264,"3state_FL_abundance","2src")
+
+write_mochi_weights("./analysis_files/MoCHI_weights/3state_FL_weights_Activity.txt",264,"3state_FL_activity","2src")
+
+```
+

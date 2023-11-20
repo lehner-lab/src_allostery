@@ -1,0 +1,521 @@
+---
+title: "Figure 2"
+author: "Toni Beltran"
+date: "19/11/2023"
+output: html_document
+---
+
+
+```{r load data and plot}
+
+library(ggplot2)
+library(data.table)
+library(scales)
+
+base_dir="/Users/ab6415/Desktop/cluster_work/54_final_github_and_zenodo_submissions/"
+
+setwd(base_dir)
+
+#load fitted ddGf and ddGa
+weights_kdkin_ab_activity<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Activity.txt")
+weights_kdkin_ab_abundance<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Folding.txt")
+
+
+#load annotation information
+src_annotation<-fread("./analysis_files/20220620_c-SRC_annotations.txt") 
+
+src_annotation$KD_lobe<-factor(src_annotation$KD_lobe,
+                               levels=c("N-lobe","hinge region","C-lobe","C-terminal tail"))
+
+src_annotation[position<275,`secondary_structure_KD_refs1,2`:="beta1 loop"]
+table(src_annotation$`secondary_structure_KD_refs1,2`)
+
+src_annotation$secondary_structure<-factor(src_annotation$`secondary_structure_KD_refs1,2`,
+                                           levels=c("beta1 loop","beta1","beta1-beta2 turn","beta2","beta2-beta3 turn",
+                                                    "beta3","beta3-alphaC loop","alphaC","alphaC-beta4 loop","beta4",
+                                                    "beta4-beta5 loop","beta5","beta5-alphaD loop","alphaD","alphaD-alphaE loop",
+                                                    "alphaE","alphaE-beta7 loop","beta7","beta7 prehelix","beta7-beta8 turn",
+                                                    "beta8","activation loop","alphaEF","alphaEF-alphaF loop","alphaF",
+                                                    "alphaF-alphaG loop","alphaG","alphaG-alphaH loop","alphaH","alphaH-alphaI loop",
+                                                    "alphaI","C-terminal tail"
+                                                    ))
+
+#catalytically important regions
+src_annotation[,cat_regions:="other"]
+src_annotation[`secondary_structure_KD_refs1,2`=="activation loop" | smallMolecule_ion_substrate_binding=="Mg2+ positioning loop" | smallMolecule_ion_substrate_binding=="protein_substrate_positioningLoop",cat_regions:="activation segment"]
+src_annotation[`secondary_structure_KD_refs1,2`=="activation loop",cat_regions_sub:="activation segment - activation loop"]
+src_annotation[smallMolecule_ion_substrate_binding=="Mg2+ positioning loop",cat_regions_sub:="activation segment - Mg2+ positioning loop"]
+src_annotation[smallMolecule_ion_substrate_binding=="protein_substrate_positioningLoop",cat_regions_sub:="activation segment - alphaEF/substrate binding"]
+src_annotation[smallMolecule_ion_substrate_binding=="ATP",cat_regions:="ATP binding"]
+src_annotation[ActiveSite_ProSite %in% c("CatLoop","CatLoop HRD","CatLoop HRD - proton acceptor"),cat_regions:="catalytic loop"]
+src_annotation[ActiveSite_ProSite %in% c("CatLoop","CatLoop HRD","CatLoop HRD - proton acceptor"),cat_regions:="catalytic loop"]
+src_annotation[ActiveSite_ProSite %in% c("CatLoop HRD"),cat_regions_sub:="catalytic loop - HRD"]
+src_annotation[ActiveSite_ProSite %in% c("CatLoop HRD - proton acceptor"),cat_regions_sub:="catalytic loop - proton acceptor"]
+src_annotation[position>276 & position<285,cat_regions_sub:="ATP binding - G-Loop"]
+
+#load sasa calculated from structures and merge
+src_KD_sasa<-fread("analysis_files/2SRC_KD.pdb.rsa.naccess.form")
+
+colnames(src_KD_sasa)<-c("RES","wt_aa","chain","pos","sasa_all","rsasa_all","sasa_sidechain","rsasa_sidechain","sasa_mainchain","rsasa_mainchain","sasa_nonpolar","rsasa_nonpolar","sasa_polar","rsasa_polar")
+#adjust pdb position to match uniprot position
+src_KD_sasa[,pos:=pos+3]
+src_KD_sasa[rsasa_all<25,core:="core"]
+src_KD_sasa[rsasa_all>=25,core:="surface"]
+table(src_KD_sasa[pos>267,]$core)
+#adjust weights table position to match uniprot position
+weights_kdkin_ab_abundance[,pos_in_uniprot:=Pos_ref+267]
+
+#merge with MoCHI weights
+weights_kdkin_ab_abundance_sasa<-merge(weights_kdkin_ab_abundance,src_KD_sasa,
+                                         by.x = "pos_in_uniprot",
+                                         by.y = "pos",all.x = TRUE)
+weights_kdkin_ab_abundance_sasa_anno<-merge(weights_kdkin_ab_abundance_sasa,src_annotation,
+                                         by.x = "pos_in_uniprot",
+                                         by.y = "position",all.x = TRUE)
+weights_kdkin_ab_abundance_sasa_anno<-weights_kdkin_ab_abundance_sasa_anno[id!="WT",]
+
+
+#add surface annotation to Y530 (didn't get assigned because in the structure is phosphorylated)
+weights_kdkin_ab_abundance_sasa_anno[KD_lobe=="C-terminal tail",core:="surface"]
+
+
+#plot core vs surface mutation effect distributions
+ggplot(weights_kdkin_ab_abundance_sasa_anno)+
+  geom_jitter(aes(y=core,x=`mean_kcal/mol`,col=`mean_kcal/mol`),alpha=0.25)+
+  geom_violin(aes(y=core,x=`mean_kcal/mol`,col=`mean_kcal/mol`),fill=NA)+
+  geom_boxplot(aes(y=core,x=`mean_kcal/mol`),fill=NA,width=0.25,outlier.shape = NA)+
+  facet_wrap(~KD_lobe,ncol = 1)+
+  theme_classic()+
+  scale_colour_gradientn(colours = c("blue","grey","red"), 
+                         values = rescale(c(min(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`),
+                                            0,
+                                            max(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", 
+                       limits=c(min(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`),
+                                max(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`)))
+ggsave("output_files/Figure2b_core_vs_surface_violin_KD.pdf")
+
+
+#test for stabilizing and destabilizing mutations and compute enrichments in secondary structure elements of the KD
+weights_kdkin_ab_abundance_sasa_anno[,z_stab:=(`mean_kcal/mol`-(0))/`std_kcal/mol`]
+weights_kdkin_ab_abundance_sasa_anno[,p_stab:=pnorm(z_stab)]
+ggplot(weights_kdkin_ab_abundance_sasa_anno)+
+  geom_histogram(aes(x=p_stab))
+
+weights_kdkin_ab_abundance_sasa_anno[,z_destab:=(`mean_kcal/mol`-(0.5))/`std_kcal/mol`]
+weights_kdkin_ab_abundance_sasa_anno[,p_destab:=1-pnorm(z_destab)]
+ggplot(weights_kdkin_ab_abundance_sasa_anno)+
+  geom_histogram(aes(x=p_destab))
+
+weights_kdkin_ab_abundance_sasa_anno[,class:="no change"]
+weights_kdkin_ab_abundance_sasa_anno[p_stab<0.05,class:="stabilizing"]
+weights_kdkin_ab_abundance_sasa_anno[p_destab<0.05,class:="destabilizing"]
+
+table(weights_kdkin_ab_abundance_sasa_anno$class)
+
+#individual residue enrichments for top frustrated residues 
+stab_muts_bysite<-weights_kdkin_ab_abundance_sasa_anno[, .(stab = length(which(class=="stabilizing")),
+                                                           destab = length(which(class=="destabilizing")),
+                                                           nochange = length(which(class=="no change")),
+                                                           wt_aa = unique(WT_AA)), by = pos_in_uniprot]
+
+stab_muts_bysite$fet_or<-unlist(apply(stab_muts_bysite,MARGIN=1,FUN=function(row){
+  stab<-as.numeric(row[2])
+  no_stab<-as.numeric(row[3])+as.numeric(row[4])
+  test<-fisher.test(cbind(c(468-stab,3940+703-no_stab),c(stab,no_stab)))
+  return(test$estimate)}))
+
+stab_muts_bysite$fet_p<-unlist(apply(stab_muts_bysite,MARGIN=1,FUN=function(row){
+  stab<-as.numeric(row[2])
+  no_stab<-as.numeric(row[3])+as.numeric(row[4])
+  test<-fisher.test(cbind(c(468-stab,3940+703-no_stab),c(stab,no_stab)))
+  return(test$p.value)}))
+
+stab_muts_bysite[,fet_fdr:=p.adjust(fet_p)]
+stab_muts_bysite[fet_fdr<0.1,]$pos_in_uniprot
+
+stab_muts_bysite_sig<-stab_muts_bysite[fet_fdr<0.1,]
+stab_muts_bysite_sig$wt_aa
+
+
+#enrichment by secondary structure group
+#fisher's exact test
+enrichment_by_2ary_structure<- data.table(rbind(table(weights_kdkin_ab_abundance_sasa_anno$secondary_structure,weights_kdkin_ab_abundance_sasa_anno$class)))
+enrichment_by_2ary_structure$secondary_structure<-rownames(rbind(table(weights_kdkin_ab_abundance_sasa_anno$secondary_structure,weights_kdkin_ab_abundance_sasa_anno$class)))
+enrichment_by_2ary_structure$not_stabilising<-enrichment_by_2ary_structure$destabilizing+enrichment_by_2ary_structure$`no change`
+enrichment_by_2ary_structure$not_destabilising<-enrichment_by_2ary_structure$stabilizing+enrichment_by_2ary_structure$`no change`
+
+enrichment_by_2ary_structure$fet_stabilizing_p<-apply(enrichment_by_2ary_structure,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[3]),as.numeric(row[5])),c(sum(enrichment_by_2ary_structure$stabilizing)-as.numeric(row[3]),
+                                                                    sum(enrichment_by_2ary_structure$not_stabilising)-as.numeric(row[5]))))
+  return(fet$p.value)
+})
+enrichment_by_2ary_structure$fet_stabilizing_OR<-apply(enrichment_by_2ary_structure,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[3]),as.numeric(row[5])),c(sum(enrichment_by_2ary_structure$stabilizing)-as.numeric(row[3]),
+                                                                    sum(enrichment_by_2ary_structure$not_stabilising)-as.numeric(row[5]))))
+  return(fet$estimate)
+})
+
+enrichment_by_2ary_structure$fet_destabilizing_p<-apply(enrichment_by_2ary_structure,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[1]),as.numeric(row[6])),c(sum(enrichment_by_2ary_structure$destabilizing)-as.numeric(row[1]),
+                                                                    sum(enrichment_by_2ary_structure$not_destabilising)-as.numeric(row[6]))))
+  return(fet$p.value)
+})
+enrichment_by_2ary_structure$fet_destabilizing_OR<-apply(enrichment_by_2ary_structure,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[1]),as.numeric(row[6])),c(sum(enrichment_by_2ary_structure$destabilizing)-as.numeric(row[1]),
+                                                                    sum(enrichment_by_2ary_structure$not_destabilising)-as.numeric(row[6]))))
+  return(fet$estimate)
+})
+
+enrichment_by_2ary_structure[,fet_destabilizing_FDR:=p.adjust(fet_destabilizing_p,method="fdr")]
+enrichment_by_2ary_structure[,fet_stabilizing_FDR:=p.adjust(fet_stabilizing_p,method="fdr")]
+
+enrichment_by_2ary_structure[fet_stabilizing_FDR<0.1 & fet_stabilizing_OR>1,]                             
+enrichment_by_2ary_structure[fet_destabilizing_FDR<0.1 & fet_destabilizing_OR>1,]                             
+
+ggplot(weights_kdkin_ab_abundance_sasa_anno)+
+  geom_bar(aes(y=secondary_structure,fill=class))+
+  theme_classic()+
+  scale_fill_manual(values=c("red","grey","blue"))
+ggsave("output_files/Figure2c_mutation_classes_KD.pdf")
+
+
+
+#enrichment quant stabilizing-destabilizing
+table(weights_kdkin_ab_abundance_sasa_anno$class)
+#enrichment quant core-surface
+table(weights_kdkin_ab_abundance_sasa_anno$class,weights_kdkin_ab_abundance_sasa_anno$core)
+
+test<-fisher.test(cbind(c(630,1788+242),
+                  c(73,2152+226)))
+test$p.value
+
+table(weights_kdkin_ab_abundance_sasa_anno$class,weights_kdkin_ab_abundance_sasa_anno$KD_lobe)
+
+#n vs c lobes
+test<-fisher.test(cbind(c(541,2439+383),c(150,1181+75)))
+test$p.value
+test$estimate
+
+table(weights_kdkin_ab_abundance_sasa_anno[KD_lobe=="N-lobe",]$class,weights_kdkin_ab_abundance_sasa_anno[KD_lobe=="N-lobe",]$core)
+table(weights_kdkin_ab_abundance_sasa_anno[KD_lobe=="C-lobe",]$class,weights_kdkin_ab_abundance_sasa_anno[KD_lobe=="C-lobe",]$core)
+
+#nlobe core vs surface
+test<-fisher.test(cbind(c(100,529+55),
+                  c(50,652+20)))
+test$p.value
+test$estimate
+
+#clobe core vs surface
+test<-fisher.test(cbind(c(521,1230+187),
+                  c(20,1209+196)))
+test$p.value
+test$estimate
+
+length(unique(weights_kdkin_ab_abundance_sasa_anno[class=="stabilizing",]$pos_in_uniprot))
+
+#enrichment in catalytic regions
+table(weights_kdkin_ab_abundance_sasa_anno$class,weights_kdkin_ab_abundance_sasa_anno$cat_regions)
+table(weights_kdkin_ab_abundance_sasa_anno$class)
+
+#G-loop
+test<-fisher.test(cbind(c(19,133),
+                  c(468-19,3940+703-133)))
+test$p.value
+test$estimate
+
+#proton acceptor
+test<-fisher.test(cbind(c(4,15),
+                  c(468-4,3940+703-15)))
+test$p.value
+test$estimate
+
+#activation segment
+test<-fisher.test(cbind(c(202,306+43),
+                  c(468-202,3940+703-306-43)))
+test$p.value
+test$estimate
+
+#subregions
+table(weights_kdkin_ab_abundance_sasa_anno$class,weights_kdkin_ab_abundance_sasa_anno$cat_regions_sub)
+
+#substrate peptide positioning loop
+test<-fisher.test(cbind(c(54,74+43),
+                  c(468-54,3940+703-74-43)))
+test$p.value
+test$estimate
+
+#Mg2+ positioning loop
+test<-fisher.test(cbind(c(54,41),
+                  c(468-54,3940+703-41)))
+test$p.value
+test$estimate
+
+
+#plot mutation effect distributions in catalytic regions
+ggplot(weights_kdkin_ab_abundance_sasa_anno)+
+  geom_jitter(aes(y=cat_regions,x=`mean_kcal/mol`,col=`mean_kcal/mol`),alpha=0.25)+
+  geom_jitter(aes(y=cat_regions_sub,x=`mean_kcal/mol`,col=`mean_kcal/mol`),alpha=0.25)+
+  geom_violin(aes(y=cat_regions,x=`mean_kcal/mol`,col=`mean_kcal/mol`),fill=NA)+
+  geom_violin(aes(y=cat_regions_sub,x=`mean_kcal/mol`,col=`mean_kcal/mol`),fill=NA)+
+  geom_boxplot(aes(y=cat_regions,x=`mean_kcal/mol`),fill=NA,width=0.25,outlier.shape = NA)+
+  geom_boxplot(aes(y=cat_regions_sub,x=`mean_kcal/mol`),fill=NA,width=0.25,outlier.shape = NA)+
+  theme_classic()+
+  scale_colour_gradientn(colours = c("blue","grey","red"), 
+                         values = rescale(c(min(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`),
+                                            0,
+                                            max(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", 
+                       limits=c(min(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`),
+                                max(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`)))
+ggsave("output_files/Figure2e_cat_regions_KD.pdf")
+
+
+```
+
+
+#contacts
+
+```{r contacts}
+
+#contact data
+inactive_contacts<-fread("analysis_files/2SRC.getcontacts.form.tsv")
+inactive_contacts[,contact:=paste(V3,V4,V2,sep="_")]
+active_contacts<-fread("analysis_files/1Y57.getcontacts.form.tsv")
+active_contacts[,contact:=paste(V3,V4,V2,sep="_")]
+
+`%notin%` <- Negate(`%in%`)
+
+shared<-active_contacts$contact[which(active_contacts$contact %in% inactive_contacts$contact)]
+active<-active_contacts$contact[which(active_contacts$contact %notin% inactive_contacts$contact)]
+inactive<-inactive_contacts$contact[which(inactive_contacts$contact %notin% active_contacts$contact)]
+
+contacts<-data.table(contact=c(shared,active,inactive),
+           structure=c(rep("non-specific",length(shared)),
+                       rep("active",length(active)),
+                       rep("inactive",length(inactive))))
+
+contacts$type<-unlist(lapply(contacts$contact,FUN=function(string){
+  return(strsplit(string,"_")[[1]][3])
+}))
+
+contacts$pos1<-unlist(lapply(contacts$contact,FUN=function(string){
+  return(strsplit(strsplit(string,"_")[[1]][1],":")[[1]][3])
+}))
+
+contacts$pos2<-unlist(lapply(contacts$contact,FUN=function(string){
+  return(strsplit(strsplit(string,"_")[[1]][2],":")[[1]][3])
+}))
+
+contacts[pos1>264 & pos2>264,intra_inter:="KD_KD"]
+contacts[pos1>264 & pos2<264,intra_inter:="KD_reg"]
+contacts[pos1<264 & pos2>264,intra_inter:="KD_reg"]
+contacts[pos1<264 & pos2<264,intra_inter:="reg_reg"]
+
+#remove duplicated sbs
+contacts_sb<-contacts[type=="sb",]
+contacts_sb<-contacts_sb[!duplicated(contacts_sb[,c("structure","type","pos1","pos2")]),]
+contacts<-contacts[type !="sb",]
+contacts<-rbind(contacts_sb,contacts)
+
+#reclassify hbss as hbss_sb when they are also a salt bridge 
+contacts$min<-apply(contacts,MARGIN = 1,FUN=function(row){return(min(row[4:5]))})
+contacts$max<-apply(contacts,MARGIN = 1,FUN=function(row){return(max(row[4:5]))})
+contacts[,pos1_pos2:=paste(min,max,sep="_")]
+
+contacts[type=="hbss" & structure=="active" & pos1_pos2 %in% contacts[type=="sb" & structure=="active",]$pos1_pos2,type:="hbss_sb"]
+contacts[type=="hbss" & structure=="inactive" & pos1_pos2 %in% contacts[type=="sb" & structure=="inactive",]$pos1_pos2,type:="hbss_sb"]
+contacts[type=="hbss" & structure=="non-specific" & pos1_pos2 %in% contacts[type=="sb" & structure=="non-specific",]$pos1_pos2,type:="hbss_sb"]
+
+#remove duplicated contacts
+which(table(contacts[type=="sb",]$pos1_pos2)>1)
+contacts[type=="sb" & pos1_pos2=="386_388",]$structure<-"non-specific"
+contacts<-contacts[!duplicated(paste(pos1_pos2,type,sep="_"))]
+
+#compute the sum of ddGfs for contacts
+
+#adjust numbering to that of structures for merging
+mean_ddGfs<-weights_kdkin_ab_abundance_sasa_anno[, .(mean_ddGf = mean(`mean_kcal/mol`)), by = pos_in_uniprot]
+mean_ddGfs[,Pos_ref:=pos_in_uniprot-3]
+
+compute_contact_sums<-function(distribution,contact_type){
+  
+  contacts_energies<-data.table(contacts)
+  contacts_energies$pos1<-as.numeric(contacts_energies$pos1)
+  contacts_energies$pos2<-as.numeric(contacts_energies$pos2)
+  contacts_energies<-merge(contacts_energies,mean_ddGfs,by.x="pos1",by.y="Pos_ref",all.x = TRUE)
+  contacts_energies<-merge(contacts_energies,mean_ddGfs,by.x="pos2",by.y="Pos_ref",all.x = TRUE)
+
+  contacts_energies[,ddG_sum:=mean_ddGf.x+mean_ddGf.y]
+
+  return(contacts_energies[pos1<518 & pos2<518 & pos1>264 & pos2>264 & type==contact_type & intra_inter==distribution,])
+  
+}
+
+sb<-compute_contact_sums("KD_KD","sb")
+pc<-compute_contact_sums("KD_KD","pc")
+hbss<-compute_contact_sums("KD_KD","hbss")
+
+contacts_ddGf_sums<-rbind(sb,pc,hbss)
+contacts_ddGf_sums<-contacts_ddGf_sums[!duplicated(pos1_pos2)]
+
+contacts_ddGf_sums[order(ddG_sum,decreasing=TRUE),]
+
+#ratio of the sum of energies with the 2nd contact
+contacts_ddGf_sums[order(ddG_sum,decreasing=TRUE)[1],]$ddG_sum/contacts_ddGf_sums[order(ddG_sum,decreasing=TRUE)[2],]$ddG_sum
+#with all sbs
+contacts_ddGf_sums[order(ddG_sum,decreasing=TRUE)[1],]$ddG_sum/mean(contacts_ddGf_sums[type=="sb",]$ddG_sum)
+#with all contacts
+contacts_ddGf_sums[order(ddG_sum,decreasing=TRUE)[1],]$ddG_sum/mean(contacts_ddGf_sums$ddG_sum)
+
+
+```
+
+
+
+#E432-R506 contact
+
+
+```{r weights E432-R506}
+
+
+weights_kdkin_ab_abundance_sasa_anno$mut_aa<-unlist(lapply(weights_kdkin_ab_abundance_sasa_anno$id,FUN = function(string){
+  return(substr(string,nchar(string),nchar(string)))}))
+weights_kdkin_ab_abundance_sasa_anno$wt_aa<-unlist(lapply(weights_kdkin_ab_abundance_sasa_anno$id,FUN = function(string){
+  return(substr(string,1,1))}))
+
+weights_kdkin_ab_abundance_sasa_anno[mut_aa %in% strsplit("AVILMFWY","")[[1]],mut_aa_type:="hydrophobic"]
+weights_kdkin_ab_abundance_sasa_anno[mut_aa %in% strsplit("HDEKR","")[[1]],mut_aa_type:="charged"]
+weights_kdkin_ab_abundance_sasa_anno[mut_aa %in% strsplit("QNST","")[[1]],mut_aa_type:="polar"]
+weights_kdkin_ab_abundance_sasa_anno[mut_aa %in% c("G"),mut_aa_type:="glycine"]
+weights_kdkin_ab_abundance_sasa_anno[mut_aa %in% c("P"),mut_aa_type:="proline"]
+weights_kdkin_ab_abundance_sasa_anno[mut_aa %in% c("C"),mut_aa_type:="cysteine"]
+
+weights_kdkin_ab_abundance_sasa_anno$mut_aa<-factor(weights_kdkin_ab_abundance_sasa_anno$mut_aa,
+                                                    levels=c(strsplit("AVILMFWY","")[[1]],"G","P","C",strsplit("QNST","")[[1]],strsplit("DEKRH","")[[1]]))
+
+ggplot(weights_kdkin_ab_abundance_sasa_anno[pos_in_uniprot %in% c(435,509),])+
+  geom_tile(aes(x=pos_in_uniprot,y=mut_aa,fill=`mean_kcal/mol`))+
+    scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
+                         values = rescale(c(min(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`)))+
+  theme_classic()
+ggsave("output_files/Figure2d_saltbridge_ER_Clobe_KD.pdf")
+  
+
+```
+
+
+#Figure S2: mutation types and stability effects
+
+
+```{r mut_type, fig.height=10,fig.width=10}
+
+#mutation effects by wt and mutant aa
+
+weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="",secondary_structure_uniprot:="coil"]
+ggplot(weights_kdkin_ab_abundance_sasa_anno)+
+  geom_boxplot(aes(x=mut_aa,y=`mean_kcal/mol`,fill=mut_aa_type))+
+  facet_wrap(~secondary_structure_uniprot)+
+  theme_classic()
+ggsave("output_files/FigureS2a_mut_aa_secondary_structure_boxplots_bytype_KD.pdf")
+
+
+ggplot(weights_kdkin_ab_abundance_sasa_anno)+
+  geom_boxplot(aes(x=mut_aa,y=`mean_kcal/mol`,fill=mut_aa_type))+
+  #scale_fill_manual(values = c("#fc4242ff","purple","violet","#fdac00ff","#7071ffff","green"))+
+  geom_boxplot(aes(x=mut_aa,y=`mean_kcal/mol`,color = mut_aa_type),
+               fatten = NULL, fill = NA, coef = 0, outlier.alpha = 0,
+               show.legend = F)+
+  facet_wrap(~secondary_structure)+
+  theme_classic()
+ggsave("output_files/FigureS2c_mut_aa_secondary_structure_all_KD.pdf",width = 15,height = 15)
+
+```
+
+
+```{r enrichment of mutation types in stabilizing/destabilizing groups KD}
+#all
+mutaa_enrichments<-data.table(rbind(table(weights_kdkin_ab_abundance_sasa_anno$mut_aa,weights_kdkin_ab_abundance_sasa_anno$class)))
+mutaa_enrichments$mut_aa<-rownames(table(weights_kdkin_ab_abundance_sasa_anno$mut_aa,weights_kdkin_ab_abundance_sasa_anno$class))
+mutaa_enrichments$secondary_structure<-rep("all",nrow(mutaa_enrichments))
+#helix
+mutaa_enrichments_helix<-data.table(rbind(table(weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="helix",]$mut_aa,weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="helix",]$class)))
+mutaa_enrichments_helix$mut_aa<-rownames(table(weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="helix",]$mut_aa,weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="helix",]$class))
+mutaa_enrichments_helix$secondary_structure<-rep("helix",nrow(mutaa_enrichments_helix))
+#beta strand
+mutaa_enrichments_beta_strand<-data.table(rbind(table(weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="beta strand",]$mut_aa,weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="beta strand",]$class)))
+mutaa_enrichments_beta_strand$mut_aa<-rownames(table(weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="beta strand",]$mut_aa,weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="beta strand",]$class))
+mutaa_enrichments_beta_strand$secondary_structure<-rep("beta strand",nrow(mutaa_enrichments_beta_strand))
+#turn
+mutaa_enrichments_turn<-data.table(rbind(table(weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="turn",]$mut_aa,weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="turn",]$class)))
+mutaa_enrichments_turn$mut_aa<-rownames(table(weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="turn",]$mut_aa,weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="turn",]$class))
+mutaa_enrichments_turn$secondary_structure<-rep("turn",nrow(mutaa_enrichments_turn))
+#coil
+mutaa_enrichments_coil<-data.table(rbind(table(weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="coil",]$mut_aa,weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="coil",]$class)))
+mutaa_enrichments_coil$mut_aa<-rownames(table(weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="coil",]$mut_aa,weights_kdkin_ab_abundance_sasa_anno[secondary_structure_uniprot=="coil",]$class))
+mutaa_enrichments_coil$secondary_structure<-rep("coil",nrow(mutaa_enrichments_coil))
+
+
+#join
+mutaa_enrichments_all<-rbind(mutaa_enrichments,mutaa_enrichments_beta_strand,mutaa_enrichments_helix,mutaa_enrichments_coil,mutaa_enrichments_turn)
+
+mutaa_enrichments_all$not_stabilising<-mutaa_enrichments_all$destabilizing+mutaa_enrichments_all$`no change`
+mutaa_enrichments_all$not_destabilising<-mutaa_enrichments_all$stabilizing+mutaa_enrichments_all$`no change`
+
+mutaa_enrichments_all$fet_stabilizing_p<-apply(mutaa_enrichments_all,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[3]),as.numeric(row[6])),c(sum(mutaa_enrichments_all$stabilizing)-as.numeric(row[3]),
+                                                                    sum(mutaa_enrichments_all$not_stabilising)-as.numeric(row[6]))))
+  return(fet$p.value)
+})
+mutaa_enrichments_all$fet_stabilizing_OR<-apply(mutaa_enrichments_all,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[3]),as.numeric(row[6])),c(sum(mutaa_enrichments_all$stabilizing)-as.numeric(row[3]),
+                                                                    sum(mutaa_enrichments_all$not_stabilising)-as.numeric(row[6]))))
+  return(fet$estimate)
+})
+
+mutaa_enrichments_all$fet_destabilizing_p<-apply(mutaa_enrichments_all,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[1]),as.numeric(row[7])),c(sum(mutaa_enrichments_all$destabilizing)-as.numeric(row[1]),
+                                                                    sum(mutaa_enrichments_all$not_destabilising)-as.numeric(row[7]))))
+  return(fet$p.value)
+})
+mutaa_enrichments_all$fet_destabilizing_OR<-apply(mutaa_enrichments_all,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[1]),as.numeric(row[7])),c(sum(mutaa_enrichments_all$destabilizing)-as.numeric(row[1]),
+                                                                    sum(mutaa_enrichments_all$not_destabilising)-as.numeric(row[7]))))
+  return(fet$estimate)
+})
+
+mutaa_enrichments_all[,fet_destabilizing_FDR:=p.adjust(fet_destabilizing_p,method="fdr")]
+mutaa_enrichments_all[,fet_stabilizing_FDR:=p.adjust(fet_stabilizing_p,method="fdr")]
+
+mutaa_enrichments_all[fet_stabilizing_FDR<0.1 & fet_stabilizing_OR>1,]                             
+mutaa_enrichments_all[fet_destabilizing_FDR<0.1 & fet_destabilizing_OR>1,]
+
+mutaa_enrichments_all[fet_stabilizing_FDR<0.1,sig_stab:="*"]                             
+mutaa_enrichments_all[fet_destabilizing_FDR<0.1,sig_destab:="*"]
+
+mutaa_enrichments_all[mut_aa %in% strsplit("AVILMFWY","")[[1]],mut_aa_type:="hydrophobic"]
+mutaa_enrichments_all[mut_aa %in% strsplit("HDEKR","")[[1]],mut_aa_type:="charged"]
+mutaa_enrichments_all[mut_aa %in% strsplit("QNST","")[[1]],mut_aa_type:="polar"]
+mutaa_enrichments_all[mut_aa %in% c("G"),mut_aa_type:="glycine"]
+mutaa_enrichments_all[mut_aa %in% c("P"),mut_aa_type:="proline"]
+mutaa_enrichments_all[mut_aa %in% c("C"),mut_aa_type:="cysteine"]
+
+mutaa_enrichments_all$mut_aa<-factor(mutaa_enrichments_all$mut_aa,
+                                                    levels=c(strsplit("AVILMFWY","")[[1]],"G","P","C",strsplit("QNST","")[[1]],strsplit("DEKRH","")[[1]]
+                                                             ))
+ggplot(mutaa_enrichments_all[secondary_structure=="all",])+
+  geom_col(aes(y=log2(fet_destabilizing_OR),x=mut_aa,fill=mut_aa_type))+
+  geom_text(aes(y=log2(fet_destabilizing_OR),x=mut_aa,label=sig_destab))+
+  theme_classic()
+ggsave("output_files/FigureS2b_mutation_types_enrichment_in_destabilizing_KD.pdf")
+
+ggplot(mutaa_enrichments_all[secondary_structure!="all",])+
+  geom_col(aes(y=log2(fet_destabilizing_OR),x=mut_aa,fill=mut_aa_type))+
+  geom_text(aes(y=log2(fet_destabilizing_OR),x=mut_aa,label=sig_destab))+
+  facet_wrap(~secondary_structure)+
+  theme_classic()
+ggsave("output_files/FigureS2b_mutation_types_enrichment_in_destabilizing_secondary_structures_KD.pdf")
+
+
+```

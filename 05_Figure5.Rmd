@@ -1,0 +1,399 @@
+---
+title: "Figure5"
+author: "Toni Beltran"
+date: "19/11/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(ggplot2)
+library(data.table)
+library(scales)
+library(gplots)
+
+
+base_dir="/Users/ab6415/Desktop/cluster_work/54_final_github_and_zenodo_submissions/"
+
+setwd(base_dir)
+
+#load distances to each of the small molecule docked clusters in all Src structures
+distances_to_smallmols<-fread("analysis_files/src_to_smallmolecule_distances_structures_5A.txt")
+distances_to_smallmols<-distances_to_smallmols[V3!="H",]
+distances_to_smallmols$druggability_score<-unlist(lapply(distances_to_smallmols$V6,FUN=function(string){return(as.numeric(strsplit(string,"-")[[1]][3]))}))
+distances_to_smallmols<-distances_to_smallmols[druggability_score>5,]
+
+mindistances_to_smallmols_byresidue<-distances_to_smallmols[,list(mindist=min(V11)),by=list(V1,V4,V5,V6)]
+mindistances_to_smallmols_byresidue[,pocket_ID:=paste(V1,V6,sep="_")]
+
+pocket_IDs<-unique(mindistances_to_smallmols_byresidue$pocket_ID)
+length(pocket_IDs)
+
+#offsets for each structure
+mindistances_to_smallmols_byresidue[V1=="1YOL_A",V5:=V5-2]
+mindistances_to_smallmols_byresidue[V1=="1YOL_B",V5:=V5-2]
+mindistances_to_smallmols_byresidue[V1=="1YOJ_A",V5:=V5-2]
+mindistances_to_smallmols_byresidue[V1=="1YOJ_B",V5:=V5-2]
+
+#cluster pockets
+pocket_overlaps_jaccard<-matrix(data=NA,nrow=length(pocket_IDs),ncol=length(pocket_IDs))
+pocket_overlaps_sorensen<-matrix(data=NA,nrow=length(pocket_IDs),ncol=length(pocket_IDs))
+pocket_overlaps_szymkiewicz<-matrix(data=NA,nrow=length(pocket_IDs),ncol=length(pocket_IDs))
+
+#calculate jaccard index distances
+for (i in seq(length(pocket_IDs))){
+    for (j in seq(length(pocket_IDs))){
+      
+            residues_i<-mindistances_to_smallmols_byresidue[pocket_ID==pocket_IDs[i],]$V5
+            residues_j<-mindistances_to_smallmols_byresidue[pocket_ID==pocket_IDs[j],]$V5
+            
+            pocket_overlaps_jaccard[i,j]<-length(which(residues_i %in% residues_j))/(length(unique(c(residues_i,residues_j))))
+            pocket_overlaps_sorensen[i,j]<-2*length(which(residues_i %in% residues_j))/(length(residues_i)+length(residues_j))
+            pocket_overlaps_szymkiewicz[i,j]<-length(which(residues_i %in% residues_j))/min(c(length(residues_i),length(residues_j)))
+            
+    }
+}
+
+colnames(pocket_overlaps_jaccard)<-pocket_IDs
+rownames(pocket_overlaps_jaccard)<-pocket_IDs
+colnames(pocket_overlaps_sorensen)<-pocket_IDs
+rownames(pocket_overlaps_sorensen)<-pocket_IDs
+colnames(pocket_overlaps_szymkiewicz)<-pocket_IDs
+rownames(pocket_overlaps_szymkiewicz)<-pocket_IDs
+
+#szymkiewicz clusters
+hr <- hclust(as.dist(1-pocket_overlaps_szymkiewicz), method="complete")
+mycl <- cutree(hr, h=max(hr$height/2))
+clusterCols <- rainbow(length(unique(mycl)))
+myClusterSideBar <- clusterCols[mycl]
+
+pdf("output_files/FigureS5a_pocket_clusters_szymkiewicz.pdf")
+heatmap.2(1-pocket_overlaps_szymkiewicz, main="Szymkiewicz-Simpson pocket clusters", Rowv=as.dendrogram(hr), Colv = as.dendrogram(hr),dendrogram="row", trace="none", RowSideColors= myClusterSideBar,labRow = FALSE,labCol = FALSE)
+dev.off()
+
+pocket_annotation<-fread("./analysis_files/sites_to_pocketIDs.txt")[,1:7]
+
+#label each pocket with its cluster number
+mindistances_to_smallmols_byresidue$pocket_cluster<-unlist(lapply(mindistances_to_smallmols_byresidue$pocket_ID,FUN=function(id){
+  return(as.numeric(mycl[id]))
+}))
+#how many pockets in each cluster
+mindistances_to_smallmols_byresidue$pocket_cluster_size<-unlist(lapply(mindistances_to_smallmols_byresidue$pocket_ID,FUN=function(id){
+  return(length(which(mycl==as.numeric(mycl[id]))))
+}))
+
+mindistances_to_smallmols_byresidue<-merge(mindistances_to_smallmols_byresidue,pocket_annotation,by="pocket_ID",all.x=TRUE)
+
+
+```
+
+
+```{r combine with activity data}
+
+#load activity weights
+activity_weights<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Activity.txt")
+activity_weights[,Pos_ref:=Pos_ref+264]
+activity_weights[,zscore_act:=(`mean_kcal/mol`-(-0.5))/(`std_kcal/mol`)]
+activity_weights[,pvalue_act:=pnorm(zscore_act)]
+
+activity_weights[,zscore_inh:=(`mean_kcal/mol`-1)/(`std_kcal/mol`)]
+activity_weights[,pvalue_inh:=pnorm(zscore_inh,lower.tail = FALSE)]
+
+
+activity_weights[,wt_aa:=substr(id,1,1)]
+activity_weights[,mut_aa:=substr(id,nchar(id),nchar(id))]
+activity_weights[,mutation:=paste(wt_aa,Pos_ref,mut_aa,sep="")]
+
+#mean, max, min, maxabs weights  
+weights_summary<-activity_weights[,list(wmean_kcalmol = weighted.mean(`mean_kcal/mol`,`std_kcal/mol`),
+                      mean_kcalmol = mean(`mean_kcal/mol`),
+                      max_kcalmol= max(`mean_kcal/mol`),
+                      min_kcalmol= min(`mean_kcal/mol`),
+                      maxabs_kcalmol= max(abs(`mean_kcal/mol`))),by=Pos_ref]
+
+#merge residue-level data with ddGa information
+pocket_dataset_summarisedbyresidue<-merge(mindistances_to_smallmols_byresidue,weights_summary,by.x ="V5", by.y ="Pos_ref")
+pocket_dataset_allweights<-merge(mindistances_to_smallmols_byresidue,activity_weights,by.x ="V5", by.y ="Pos_ref",allow.cartesian = TRUE)
+colnames(pocket_dataset_summarisedbyresidue)[1]<-"Pos_ref"
+colnames(pocket_dataset_allweights)[1]<-"Pos_ref"
+
+pocket_dataset_summarisedbyresidue$consensus_site_rank<-as.numeric(unlist(lapply(pocket_dataset_summarisedbyresidue$pocket_ID,FUN=function(string){
+  return(substr(string,nchar(string)-6,nchar(string)-4))
+})))
+pocket_dataset_summarisedbyresidue$consensus_site_population<-as.numeric(unlist(lapply(pocket_dataset_summarisedbyresidue$pocket_ID,FUN=function(string){
+  return(substr(string,nchar(string)-2,nchar(string)))
+})))
+
+pocket_dataset_summarisedbyresidue[is.na(site),site:="other"]
+annotation_table<-table(pocket_dataset_summarisedbyresidue$site,pocket_dataset_summarisedbyresidue$pocket_cluster)
+annotation_proptable<-prop.table(table(pocket_dataset_summarisedbyresidue$site,pocket_dataset_summarisedbyresidue$pocket_cluster),margin = 2)
+
+cluster_annotations <- data.table(pocket_cluster=seq(ncol(annotation_proptable)),site=data.table(apply(annotation_proptable, 2, function(x) rownames(annotation_proptable)[which.max(x)]))$V1)
+
+#summarize by pocket
+pocket_ID<-c()
+nresidues<-c()
+max_wmean<-c()
+nresidues_wmean_1<-c()
+avg_wmean<-c()
+min_wmean<-c()
+nmutations<-c()
+nmutations_act_p_0.05<-c()
+nmutations_inh_p_0.05<-c()
+cluster<-c()
+
+minweight<-min(activity_weights$`mean_kcal/mol`)
+maxweight<-max(activity_weights$`mean_kcal/mol`)
+
+for (pocket in unique(pocket_dataset_summarisedbyresidue$pocket_ID)){
+  
+  #subset data for each individual pocket
+  subset_summary<-pocket_dataset_summarisedbyresidue[pocket_ID==pocket,]
+  subset_summary_toplot<-data.table(`mean_kcal/mol`=c(subset_summary$wmean_kcalmol,subset_summary$max_kcalmol,subset_summary$min_kcalmol),
+                                    Pos_ref=rep(subset_summary$Pos_ref,3),
+                                    mut_aa=c(rep("wmean",nrow(subset_summary)),rep("max",nrow(subset_summary)),rep("min",nrow(subset_summary))),
+                                    mindist=rep(subset_summary$mindist,3))
+  subset_summary_toplot[,category:="summary"]
+  
+  subset_summary_distance<-data.table(Pos_ref=subset_summary$Pos_ref,
+                                      mindist=subset_summary$mindist,
+                                      `mean_kcal/mol`=subset_summary$mindist,
+                                      mut_aa="distance")
+  subset_summary_distance[,category:="distance"]
+
+  #prepare data with individual mutations, residue averages, maximum, and minimum
+  subset_allweights<-pocket_dataset_allweights[pocket_ID==pocket,]
+  subset_allweights[,category:="individual mutations"]
+  
+  pocket_ID<-c(pocket_ID,pocket)
+  nresidues<-c(nresidues,nrow(subset_summary))
+  max_wmean<-c(max_wmean,max(subset_summary$wmean_kcalmol))
+  nresidues_wmean_1<-c(nresidues_wmean_1,nrow(subset_summary[wmean_kcalmol>1,]))
+  avg_wmean<-c(avg_wmean,mean(subset_summary$wmean_kcalmol))
+  min_wmean<-c(min_wmean,min(subset_summary$wmean_kcalmol))
+  nmutations<-c(nmutations,nrow(subset_allweights))
+  nmutations_act_p_0.05<-c(nmutations_act_p_0.05,nrow(subset_allweights[pvalue_act<0.05,]))
+  nmutations_inh_p_0.05<-c(nmutations_inh_p_0.05,nrow(subset_allweights[pvalue_inh<0.05,]))
+
+  stacked_data<-data.table(rbind(subset_allweights[,c("mean_kcal/mol","Pos_ref","mut_aa","category","mindist")],
+                                 subset_summary_toplot[,c("mean_kcal/mol","Pos_ref","mut_aa","category","mindist")],
+                                 subset_summary_distance[,c("mean_kcal/mol","Pos_ref","mut_aa","category","mindist")]))
+  
+  stacked_data$Pos_ref_uniprot<-factor(as.numeric(as.character(stacked_data$Pos_ref))+3)
+  stacked_data$Pos_ref<-factor(stacked_data$Pos_ref_uniprot,levels=unique(stacked_data$Pos_ref_uniprot[order(stacked_data$mindist,decreasing = FALSE)]))
+  
+  #for each pocket plot 1 from a representative structure
+  if (pocket %in% c("1FMK_A_nterm-003-016","1YI6_B_nterm-002-016","1FMK_A_nterm-000-017","2BDF_B_nterm-001-016","1FMK_A_nterm-001-017","1YOJ_A_nterm-004-012","1YOJ_B_cterm-002-013","1YOL_A_cterm-002-012","1YOJ_B_nterm-003-015","1YI6_B_cterm-003-013","2SRC_A_cterm-001-013","1Y57_A_cterm-000-015","1KSW_A_cterm-000-020","1YI6_A_nterm-003-013","1FMK_A_cterm-000-015","2SRC_A_cterm-002-013","1YOL_B_cterm-000-018","2SRC_A_nterm-000-025","1YI6_A_cterm-003-016","1Y57_A_cterm-001-014","1Y57_A_nterm-001-017","1KSW_A_cterm-001-015","2BDJ_A_nterm-003-013","4MXO_A_nterm-000-022","1YOJ_A_nterm-002-016")){
+  
+  ggplot(stacked_data[category %in% c("summary","individual mutations"),])+
+    geom_tile(aes(x=Pos_ref_uniprot,y=mut_aa,fill=`mean_kcal/mol`))+
+    scale_fill_gradientn(colours = c("blue","white","red"),
+                         values = rescale(c(minweight,0,maxweight)),
+                         guide = "colorbar", limits=c(minweight,maxweight))+
+    ggtitle(paste(unique(subset_summary$pocket_cluster),paste(unique(subset_summary$site),pocket,sep=": "),sep="_"))+
+    facet_grid(rows = vars(stacked_data[category %in% c("summary","individual mutations"),]$category),scales = "free", space="free_y")
+    ggsave(paste(paste("output_files/Figure5cde_pocket_heatmaps_pocket",paste(unique(subset_summary$pocket_cluster),paste(unique(subset_summary$site),pocket,sep="_"),sep="_"),sep = ""),"pdf",sep = "."))
+
+
+  } 
+    cluster<-c(cluster,unique(subset_summary$pocket_cluster))
+
+
+}
+
+
+```
+
+
+```{r summary of pockets}
+
+#join all data summarized by pocket
+pockets_summary<-data.table(pocket_ID,nresidues,max_wmean,nresidues_wmean_1,avg_wmean,nmutations,nmutations_act_p_0.05,nmutations_inh_p_0.05,cluster,min_wmean)
+
+pockets_summary<-merge(pockets_summary,cluster_annotations,by.x="cluster",by.y="pocket_cluster")
+
+table(pockets_summary$cluster)
+
+#extract info from pocketID
+pockets_summary$structure<-unlist(lapply(pockets_summary$pocket_ID,FUN=function(string){
+  return(substr(string,1,nchar(string)-14))
+}))
+pockets_summary$structure_nr<-unlist(lapply(pockets_summary$structure,FUN=function(string){
+  return(strsplit(string,"_")[[1]][1])
+}))
+pockets_summary$consensus_site_rank<-as.numeric(unlist(lapply(pockets_summary$pocket_ID,FUN=function(string){
+  return(substr(string,nchar(string)-6,nchar(string)-4))
+})))
+pockets_summary$consensus_site_population<-as.numeric(unlist(lapply(pockets_summary$pocket_ID,FUN=function(string){
+  return(substr(string,nchar(string)-2,nchar(string)))
+})))
+
+pockets_summary[,fractionres_wmean1:=nresidues_wmean_1/nresidues]
+pockets_summary[,fractionmuts_wmean1:=nmutations_inh_p_0.05/nmutations]
+pockets_summary[,cluster_anno:=paste(cluster,site,sep="_")]
+
+activating_all<-nrow(activity_weights[pvalue_act<0.05,])
+inactivating_all<-nrow(activity_weights[pvalue_inh<0.05,])
+all<-nrow(activity_weights)
+
+#enrichment in activating mutations
+pockets_summary$fet_OR_activating<-unlist(apply(pockets_summary,MARGIN = 1, FUN = function(row){
+  
+  nmutations<-as.numeric(as.character(row[7]))
+  nmutations_act_p_0.05<-as.numeric(as.character(row[8]))
+  nmutations_inh_p_0.05<-as.numeric(as.character(row[9]))
+  
+  test<-fisher.test(cbind(c(nmutations_act_p_0.05,nmutations-nmutations_act_p_0.05),
+                             c(activating_all-nmutations_act_p_0.05,all-nmutations-activating_all)))
+  
+  return(test$estimate)}))
+
+pockets_summary$fet_p_activating<-unlist(apply(pockets_summary,MARGIN = 1, FUN = function(row){
+  
+  nmutations<-as.numeric(as.character(row[7]))
+  nmutations_act_p_0.05<-as.numeric(as.character(row[8]))
+  nmutations_inh_p_0.05<-as.numeric(as.character(row[9]))
+  
+  test<-fisher.test(cbind(c(nmutations_act_p_0.05,nmutations-nmutations_act_p_0.05),
+                             c(activating_all-nmutations_act_p_0.05,all-nmutations-activating_all)))
+  
+  return(test$p.value)}))
+
+#enrichment in inactivating mutations
+pockets_summary$fet_OR_inactivating<-unlist(apply(pockets_summary,MARGIN = 1, FUN = function(row){
+  
+  nmutations<-as.numeric(as.character(row[7]))
+  nmutations_act_p_0.05<-as.numeric(as.character(row[8]))
+  nmutations_inh_p_0.05<-as.numeric(as.character(row[9]))
+  
+  test<-fisher.test(cbind(c(nmutations_inh_p_0.05,nmutations-nmutations_inh_p_0.05),
+                             c(inactivating_all-nmutations_inh_p_0.05,all-nmutations-inactivating_all)))
+  
+  return(test$estimate)}))
+
+pockets_summary$fet_p_inactivating<-unlist(apply(pockets_summary,MARGIN = 1, FUN = function(row){
+  
+  nmutations<-as.numeric(as.character(row[7]))
+  nmutations_act_p_0.05<-as.numeric(as.character(row[8]))
+  nmutations_inh_p_0.05<-as.numeric(as.character(row[9]))
+  
+  test<-fisher.test(cbind(c(nmutations_inh_p_0.05,nmutations-nmutations_inh_p_0.05),
+                             c(inactivating_all-nmutations_inh_p_0.05,all-nmutations-inactivating_all)))
+  
+  return(test$p.value)}))
+
+
+pockets_summary[,fet_fdr_activating:=p.adjust(fet_p_activating,method = "fdr")]
+pockets_summary[,fet_fdr_inactivating:=p.adjust(fet_p_inactivating,method = "fdr")]
+
+
+#plot the average wmean per pocket across structures
+ggplot(pockets_summary)+
+  geom_histogram(aes(x=avg_wmean))+
+  geom_vline(xintercept=1,linetype="dashed",col="red")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1,size=6))+
+  theme(axis.text.y = element_text(size=6))+
+  theme(strip.text = element_text(size=7))+
+  facet_wrap(~cluster_anno)+
+  ggtitle("all pockets")
+ggsave("output_files/FigureS5b_pocketclusters_avgwmean_distributions.pdf")
+
+
+#plot druggability vs mutation effects across structures
+ggplot(pockets_summary)+
+  geom_point(aes(x=consensus_site_population,y=avg_wmean),size=1)+
+  geom_hline(aes(yintercept=1),linetype="dashed",col="red")+
+  geom_vline(aes(xintercept=12),linetype="dashed",col="red")+
+  theme(strip.text = element_text(size=7))+
+  facet_wrap(~cluster_anno)
+ggsave("output_files/FigureS5c_pocketclusters_consensus_site_population_vs_avg_wmean.pdf",width=10,height = 7)
+
+
+```
+
+```{r pockets summary - aggregated stats by unique pocket}
+
+#summarize data across structures
+pockets_summary_aggregated<-pockets_summary[,list(
+         mean_mean=median(avg_wmean),
+         max_mean=median(max_wmean),
+         min_mean=median(min_wmean),
+         median_druggability_score=median(consensus_site_population),
+         max_druggability_score=max(consensus_site_population),
+         num_unique_structures=length(unique(structure_nr)),
+         num_active_structures=length(unique(structure_nr[which(structure_nr %in% c("1Y57","1YI6"))])),
+         num_inactive_structures=length(unique(structure_nr[which(structure_nr %in% c("2SRC","1FMK","1KSW"))])),  
+         num_druggable_docking_sites=length(unique(structure_nr[which(consensus_site_population>11)])),
+         or_activating_mutations=median(fet_OR_activating),
+         or_inactivating_mutations=median(fet_OR_inactivating),
+         fdr0.05_activating_mutations=length(which(fet_fdr_activating<0.05)),
+         fdr0.05_inactivating_mutations=length(which(fet_fdr_inactivating<0.05))),
+         by="cluster_anno"]
+
+pockets_summary_aggregated[num_active_structures>0 & num_inactive_structures>0,state:="both"]
+pockets_summary_aggregated[num_active_structures>0 & num_inactive_structures==0,state:="active"]
+pockets_summary_aggregated[num_active_structures==0 & num_inactive_structures>0,state:="inactive"]
+pockets_summary_aggregated[num_active_structures==0 & num_inactive_structures==0,state:="NA"]
+
+pockets_summary_aggregated[fdr0.05_activating_mutations>0,sig_act:="sig"]
+pockets_summary_aggregated[fdr0.05_inactivating_mutations>0,sig_inact:="sig"]
+
+#reorder based on avg ddG of pocket
+pockets_summary_aggregated$cluster_anno<-factor(pockets_summary_aggregated$cluster_anno,
+levels=pockets_summary_aggregated$cluster_anno[order(pockets_summary_aggregated$mean_mean,decreasing = TRUE)])
+
+#plot 
+ggplot(pockets_summary_aggregated)+
+  geom_tile(aes(x=cluster_anno,y="mean_mean",fill=mean_mean))+
+  geom_tile(aes(x=cluster_anno,y="max_mean",fill=max_mean))+
+  geom_tile(aes(x=cluster_anno,y="min_mean",fill=min_mean))+
+  scale_fill_gradientn(colours = c("blue","white","red"), 
+                         values = rescale(c(-max(abs(pockets_summary_aggregated$max_mean)),0,max(abs(pockets_summary_aggregated$max_mean)))),
+                         guide = "colorbar", limits=c(-max(abs(pockets_summary_aggregated$max_mean)),max(abs(pockets_summary_aggregated$max_mean))))+
+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ggsave("output_files/Figure5b_pocket_overview_median_muteffects.pdf",width = 7,height = 2)
+
+
+ggplot(pockets_summary_aggregated)+
+  geom_tile(aes(x=cluster_anno,y="median_druggability",fill=median_druggability_score))+
+  geom_tile(aes(x=cluster_anno,y="max_druggability",fill=max_druggability_score))+
+  scale_fill_gradientn(colours = c("white","maroon"), 
+                         values = rescale(c(5,max(pockets_summary_aggregated$max_druggability_score))),
+                         guide = "colorbar", limits=c(5,max(pockets_summary_aggregated$max_druggability_score)))+
+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ggsave("output_files/Figure5b_pocket_overview_mediandruggability.pdf",width = 7,height = 2)
+
+ggplot(pockets_summary_aggregated)+
+  geom_tile(aes(x=cluster_anno,y="number_of_structures",fill=num_unique_structures))+
+  scale_fill_gradientn(colours = c("lightgrey","orange"), 
+                         values = rescale(c(0,19)),
+                         guide = "colorbar", limits=c(0,19))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ggsave("output_files/Figure5b_pocket_overview_prevalence_across_structures.pdf",width = 7,height = 2)
+
+
+
+ggplot(pockets_summary_aggregated)+
+  geom_tile(aes(x=cluster_anno,y="state",fill=state))+  
+  scale_fill_manual(values = c("blue","grey","red","white"))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ggsave("output_files/Figure5b_pocket_overview_state.pdf",width = 7,height = 2)
+
+lims=max(abs(c(pockets_summary_aggregated$or_activating_mutations,pockets_summary_aggregated$or_inactivating_mutations)))
+ggplot(pockets_summary_aggregated)+
+  geom_tile(aes(x=cluster_anno,y="or_activating",fill=log2(or_activating_mutations)))+  
+  geom_tile(aes(x=cluster_anno,y="or_inactivating",fill=log2(or_inactivating_mutations)))+
+  geom_text(data=pockets_summary_aggregated[sig_act=="sig",],aes(x=cluster_anno,y="or_activating"),label="*")+
+  geom_text(data=pockets_summary_aggregated[sig_inact=="sig",],aes(x=cluster_anno,y="or_inactivating"),label="*")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  scale_fill_gradientn(colours = c("blue","white","red"), 
+                         values = rescale(c(-log2(lims),0,log2(lims))),
+                         guide = "colorbar", limits=c(-log2(lims),log2(lims)))
+ggsave("output_files/Figure5b_pocket_overview_fet_or.pdf",width = 7,height = 2)
+
+
+
+
+```
+
+

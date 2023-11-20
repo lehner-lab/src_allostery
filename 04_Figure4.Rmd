@@ -1,0 +1,1061 @@
+---
+title: "04_Figure4"
+author: "Toni Beltran"
+date: "19/11/2023"
+output: html_document
+---
+
+```{r setup}
+
+library(ggplot2)
+library(data.table)
+library(scales)
+library(gplots)
+library(viridis)
+library(ggpubr)
+
+base_dir="/Users/ab6415/Desktop/cluster_work/54_final_github_and_zenodo_submissions/"
+
+setwd(base_dir)
+
+weights_kdkin_ab_activity<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Activity.txt")
+
+#load annotations
+src_annotation<-fread("analysis_files/20220620_c-SRC_annotations.txt") 
+src_annotation[position>523,KD_lobe:="C-terminal tail"]
+src_annotation[position>267 & position<270,KD_lobe:="N-lobe"]
+
+src_annotation$KD_lobe<-factor(src_annotation$KD_lobe,
+                               levels=c("N-lobe","hinge region","C-lobe","C-terminal tail"))
+
+src_annotation[position<275,`secondary_structure_KD_refs1,2`:="beta1 loop"]
+table(src_annotation$`secondary_structure_KD_refs1,2`)
+
+src_annotation$secondary_structure<-factor(src_annotation$`secondary_structure_KD_refs1,2`,
+                                           levels=c("beta1 loop","beta1","beta1-beta2 turn","beta2","beta2-beta3 turn",
+                                                    "beta3","beta3-alphaC loop","alphaC","alphaC-beta4 loop","beta4",
+                                                    "beta4-beta5 loop","beta5","beta5-alphaD loop","alphaD","alphaD-alphaE loop",
+                                                    "alphaE","alphaE-beta7 loop","beta7","beta7 prehelix","beta7-beta8 turn",
+                                                    "beta8","activation loop","alphaEF","alphaEF-alphaF loop","alphaF",
+                                                    "alphaF-alphaG loop","alphaG","alphaG-alphaH loop","alphaH","alphaH-alphaI loop",
+                                                    "alphaI","C-terminal tail"
+                                                    ))
+
+#catalytically important regions
+src_annotation[,cat_regions:="other"]
+src_annotation[`secondary_structure_KD_refs1,2`=="activation loop" | smallMolecule_ion_substrate_binding=="Mg2+ positioning loop" | smallMolecule_ion_substrate_binding=="protein_substrate_positioningLoop",cat_regions:="activation segment"]
+src_annotation[`secondary_structure_KD_refs1,2`=="activation loop",cat_regions_sub:="activation segment - activation loop"]
+src_annotation[smallMolecule_ion_substrate_binding=="Mg2+ positioning loop",cat_regions_sub:="activation segment - Mg2+ positioning loop"]
+src_annotation[smallMolecule_ion_substrate_binding=="protein_substrate_positioningLoop",cat_regions_sub:="activation segment - alphaEF/substrate binding"]
+src_annotation[position==419,cat_regions_sub:="activation segment - Y419 phosphoswitch"]
+src_annotation[smallMolecule_ion_substrate_binding=="ATP",cat_regions:="ATP binding"]
+src_annotation[ActiveSite_ProSite %in% c("CatLoop","CatLoop HRD","CatLoop HRD - proton acceptor"),cat_regions:="catalytic loop"]
+src_annotation[ActiveSite_ProSite %in% c("CatLoop","CatLoop HRD","CatLoop HRD - proton acceptor"),cat_regions:="catalytic loop"]
+src_annotation[ActiveSite_ProSite %in% c("CatLoop HRD"),cat_regions_sub:="catalytic loop - HRD"]
+src_annotation[ActiveSite_ProSite %in% c("CatLoop HRD - proton acceptor"),cat_regions_sub:="catalytic loop - proton acceptor"]
+
+
+src_annotation[position>276 & position<285,cat_regions_sub:="ATP binding - G-Loop"]
+
+
+#solvent accessibility
+src_KD_sasa<-fread("analysis_files/2SRC_KD.pdb.rsa.naccess.form")
+
+colnames(src_KD_sasa)<-c("RES","wt_aa","chain","pos","sasa_all","rsasa_all","sasa_sidechain","rsasa_sidechain","sasa_mainchain","rsasa_mainchain","sasa_nonpolar","rsasa_nonpolar","sasa_polar","rsasa_polar")
+src_KD_sasa[,pos:=pos+3]
+src_KD_sasa[rsasa_all<25,core:="core"]
+src_KD_sasa[rsasa_all>=25,core:="surface"]
+table(src_KD_sasa[pos>267,]$core)
+
+
+weights_kdkin_ab_activity[,pos_in_uniprot:=Pos_ref+267]
+
+
+weights_kdkin_ab_activity_sasa<-merge(weights_kdkin_ab_activity,src_KD_sasa,
+                                         by.x = "pos_in_uniprot",
+                                         by.y = "pos",all.x = TRUE)
+weights_kdkin_ab_activity_sasa_anno<-merge(weights_kdkin_ab_activity_sasa,src_annotation,
+                                         by.x = "pos_in_uniprot",
+                                         by.y = "position",all.x = TRUE)
+weights_kdkin_ab_activity_sasa_anno<-weights_kdkin_ab_activity_sasa_anno[id!="WT",]
+
+#add surface annotation to Y530 (didn't get assigned because in the structure is phosphorylated)
+weights_kdkin_ab_activity_sasa_anno[KD_lobe=="C-terminal tail",core:="surface"]
+
+#add mut_aa 
+weights_kdkin_ab_activity_sasa_anno$mut_aa<-unlist(lapply(weights_kdkin_ab_activity_sasa_anno$id,FUN = function(string){
+  return(substr(string,nchar(string),nchar(string)))}))
+weights_kdkin_ab_activity_sasa_anno$wt_aa<-unlist(lapply(weights_kdkin_ab_activity_sasa_anno$id,FUN = function(string){
+  return(substr(string,1,1))}))
+weights_kdkin_ab_activity_sasa_anno$mut_aa<-factor(weights_kdkin_ab_activity_sasa_anno$mut_aa,levels=c("S","T","N","Q","D","E","K","R","H","G","P","C","M","A","L","I","V","F","Y","W"))
+
+#define activating and inactivating mutations
+weights_kdkin_ab_activity_sasa_anno[,z_twotailed:=(abs(`mean_kcal/mol`)-(0.5))/`std_kcal/mol`]
+weights_kdkin_ab_activity_sasa_anno[,p_twotailed:=2*(1-pnorm(z_twotailed))]
+weights_kdkin_ab_activity_sasa_anno[,fdr_twotailed:=p.adjust(p_twotailed,method = "fdr")]
+
+weights_kdkin_ab_activity_sasa_anno[,class:="no change"]
+weights_kdkin_ab_activity_sasa_anno[fdr_twotailed<0.1 & `mean_kcal/mol`<0.5,class:="activating"]
+weights_kdkin_ab_activity_sasa_anno[fdr_twotailed<0.1 & `mean_kcal/mol`>0.5,class:="inactivating"]
+
+weights_kdkin_ab_activity_sasa_anno$class<-factor(weights_kdkin_ab_activity_sasa_anno$class,
+                                                  levels=c("inactivating","no change","activating"))
+
+#count mutation classes per residue
+muts_by_residue<-weights_kdkin_ab_activity_sasa_anno[, .(activating = length(which(class=="activating")),
+                                                         inactivating = length(which(class=="inactivating"))), by = pos_in_uniprot]
+muts_by_residue[,change:=activating+inactivating]
+muts_by_residue[,no_change:=19-activating-inactivating]
+active_site<-c(277,279,281,282,284,296,298,389,391,394,396,407,428)
+muts_by_residue[,active_site:=FALSE]
+muts_by_residue[pos_in_uniprot %in% active_site, active_site:=TRUE]
+
+#enrichment test by residue
+muts_by_residue$fet_or<-unlist(apply(muts_by_residue,MARGIN=1,FUN=function(row){
+  change<-as.numeric(row[4])
+  no_change<-as.numeric(row[5])
+  test<-fisher.test(cbind(c(3824-no_change,1287-change),c(no_change,change)))
+  return(test$estimate)
+}))
+muts_by_residue$fet_p<-unlist(apply(muts_by_residue,MARGIN=1,FUN=function(row){
+  change<-as.numeric(row[4])
+  no_change<-as.numeric(row[5])
+  test<-fisher.test(cbind(c(3824-no_change,1287-change),c(no_change,change)))
+  return(test$p.value)
+}))
+muts_by_residue[,fet_fdr:=p.adjust(fet_p,method="fdr")]
+
+table(muts_by_residue[fet_fdr<0.1 & fet_or>2,]$active_site)
+
+#merge distance information
+distance_to_catD<-fread("analysis_files/2SRC.form.CAT.tab.pdb_pairwise_distances.txt")
+distance_to_atp<-fread("analysis_files/2SRC.form.ligand.tab.pdb_pairwise_distances.txt")
+distance_to_substrate<-fread("analysis_files/2SRC.form.SUBSTRATEp.tab.pdb_pairwise_distances.txt")
+
+#calculate minimum distance of all atoms in each residue and map to uniprot aa positions
+mindistances_by_residue_to_catD<-data.table(aggregate(distance~kinase_resno,FUN=min,data=distance_to_catD[mol_elety %in% c("OD1","OD2"),]))
+colnames(mindistances_by_residue_to_catD)[2]<-"distance_catD"
+mindistances_by_residue_to_catD[,pos_in_uniprot:=kinase_resno+3]
+mindistances_by_residue_to_atp<-data.table(aggregate(distance~kinase_resno,FUN=min,data=distance_to_atp))
+colnames(mindistances_by_residue_to_atp)[2]<-"distance_ATP"
+mindistances_by_residue_to_atp[,pos_in_uniprot:=kinase_resno+3]
+mindistances_by_residue_to_substrate<-data.table(aggregate(distance~kinase_resno,FUN=min,data=distance_to_substrate[mol_elety %in% c("CG"),]))
+colnames(mindistances_by_residue_to_substrate)[2]<-"distance_sub"
+mindistances_by_residue_to_substrate[,pos_in_uniprot:=kinase_resno+3]
+
+#merge all mutation effects with distances
+mean_ddGas<-weights_kdkin_ab_activity_sasa_anno[, .(mean_ddGa = mean(abs(`mean_kcal/mol`))), by = pos_in_uniprot]
+mean_ddGas[,active_site:=FALSE]
+mean_ddGas[pos_in_uniprot %in% active_site, active_site:=TRUE]
+
+mean_ddGas_distance<-merge(mean_ddGas,mindistances_by_residue_to_atp[,c("pos_in_uniprot","distance_ATP")],by = "pos_in_uniprot",all = TRUE)
+mean_ddGas_distance<-merge(mean_ddGas_distance,mindistances_by_residue_to_catD[,c("pos_in_uniprot","distance_catD")],by = "pos_in_uniprot",all = TRUE)
+mean_ddGas_distance<-merge(mean_ddGas_distance,mindistances_by_residue_to_substrate[,c("pos_in_uniprot","distance_sub")],by = "pos_in_uniprot",all = TRUE)
+
+#calculate minimum distance (ATP-active site-substrate)
+mean_ddGas_distance$mindistance<-unlist(apply(mean_ddGas_distance,MARGIN = 1,FUN = function(row){
+  return(min(as.numeric(row[c(4:6)])))
+}))
+
+mean_ddGas_distance<-merge(mean_ddGas_distance,muts_by_residue,by=c("pos_in_uniprot","active_site"))
+
+mean_ddGas_distance[fet_fdr<0.1 & fet_or>2 & active_site==TRUE,res_type:="active site"]
+mean_ddGas_distance[fet_fdr<0.1 & fet_or>2 & active_site==FALSE & mindistance<10,res_type:="allosteric_secondshell"]
+mean_ddGas_distance[fet_fdr<0.1 & fet_or>2 & active_site==FALSE & mindistance>10,res_type:="allosteric"]
+mean_ddGas_distance[is.na(res_type),res_type:="other"]
+
+weights_kdkin_ab_activity_sasa_anno_distances<-merge(weights_kdkin_ab_activity_sasa_anno,mean_ddGas_distance,by="pos_in_uniprot",
+                                                all.x=TRUE)
+
+#fit exponential decays to the data
+
+#function for good starting values
+residual_sum_of_squares <- function(params) {
+  a <- params[1]
+  b <- params[2]
+  predicted <- a * exp(b * xvector_starting)
+  sum((yvector_starting - predicted)^2)
+}
+
+#function to fit exp decay
+fit_exponential_curve<-function(xvector,yvector,tit,plotfig=TRUE,writepar=FALSE){
+
+#init data frame
+data <- data.table(x = xvector, y = yvector)
+
+#find good starting parameter values that minimize the residual sum of squares
+initial_guess <- c(a = 2.5, b = -0.1)  # initial guess
+optimized_params <- optim(initial_guess, residual_sum_of_squares)$par
+
+#use the optimized parameters in nls
+fit <- nls(y ~ a * exp(b * x), data = data, start = optimized_params)
+summary(fit)
+
+x_seq <- seq(min(xvector), max(xvector), length.out = 100)
+
+#calculate the corresponding y-values using the fitted model
+fitted_values <- predict(fit, newdata = data.frame(x = x_seq))
+
+parameters<-fit$m$getPars()
+parameters_anno<-paste0("a=",as.character(round(parameters[1],digits = 3)),", b=",as.character(round(parameters[2],digits = 3)))
+
+#calculate running mean over a 5A window to compare with the exponential fit
+rmean<-c()
+for (xvalue in x_seq){
+  rmean<-c(rmean,mean(data[x>xvalue-2.5 & x<xvalue+2.5,]$y))
+}
+
+ylowlim<-min(yvector)
+if (ylowlim>0){ylowlim<-0}
+
+if (plotfig){
+#plot
+plot_data <- data.frame(x = xvector, y = yvector)
+fitted_values_df <-data.frame(x_seq=x_seq,Fitted=fitted_values,running_mean=rmean)
+print(ggplot(data = plot_data, aes(x = x, y = y)) +
+  geom_point(col=alpha("black",0.5)) + 
+  labs(x = "distance to the active site (Å)", y = "ddGa", title = tit) +
+  theme_classic() +
+  theme(legend.position = "topright") +
+  geom_line(data=fitted_values_df,aes(x = x_seq, y = Fitted), color = "red", size = 1) +  # Fitted curve
+  geom_line(data=fitted_values_df,aes(x = x_seq, y = rmean), color = "blue", size = 1) +  # running mean to compare with fit
+  annotate(geom="text",x=30-5,y=max(yvector), label=parameters_anno,
+              color="red")+
+  coord_cartesian(ylim=c(ylowlim,max(yvector)),xlim=c(3,27))+
+  scale_x_continuous(breaks = round(seq(5, 25, by = 5))))
+
+ggsave(paste("output_files",paste(tit,"pdf",sep="."),sep="/"))
+}
+
+if (writepar){
+  return(fit$m$getPars())
+}
+  
+}
+
+xvector_starting=mean_ddGas_distance[pos_in_uniprot<521 & !is.na(mindistance),]$mindistance
+yvector_starting=mean_ddGas_distance[pos_in_uniprot<521 & !is.na(mindistance),]$mean_ddGa
+
+
+#all sites - mean ddGa
+fit_exponential_curve(xvector=mean_ddGas_distance[pos_in_uniprot<521 & !is.na(mindistance),]$mindistance,
+                      yvector=mean_ddGas_distance[pos_in_uniprot<521 & !is.na(mindistance),]$mean_ddGa,
+                      tit="Figure4a_allsites_mean_ddGa")
+
+mean_ddGas_distance[,predicted:=2.179*exp(-0.089*mindistance)]
+
+#comparison of R2 of exponential decay vs linear model fits
+cor(mean_ddGas_distance$predicted,mean_ddGas_distance$mean_ddGa,use="pairwise.complete.obs")**2
+cor(mean_ddGas_distance$mindistance,mean_ddGas_distance$mean_ddGa,use="pairwise.complete.obs")**2
+
+lm(mean_ddGa ~ mindistance,data=mean_ddGas_distance)$coefficients
+
+#active site + allosteric sites - mean ddGa
+fit_exponential_curve(xvector=mean_ddGas_distance[pos_in_uniprot<521 & !is.na(mindistance) & res_type!="other",]$mindistance,
+                      yvector=mean_ddGas_distance[pos_in_uniprot<521 & !is.na(mindistance) & res_type!="other",]$mean_ddGa,
+                      tit="Figure4a_inset_allo_active_mean_ddGa")
+
+#all mutations - all sites
+fit_exponential_curve(xvector=weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance),]$mindistance,
+                      yvector=abs(weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance),]$`mean_kcal/mol`),
+                      tit="FigureS4a_allsites_allmutations")
+
+#all mutations - active site + allo sites
+fit_exponential_curve(xvector=weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance) & res_type!="other",]$mindistance,
+                      yvector=abs(weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance) & res_type!="other",]$`mean_kcal/mol`),
+                      tit="FigureS4b_active_allosteric_sites_allmutations")
+
+
+#all mutations - n-lobe sites
+fit_exponential_curve(xvector=weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<342 & !is.na(mindistance),]$mindistance,
+                      yvector=abs(weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<342 & !is.na(mindistance),]$`mean_kcal/mol`),
+                      tit="Figure4b_Nlobe_allmutations")
+
+#all mutations - c-lobe sites
+fit_exponential_curve(xvector=weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot>346 & pos_in_uniprot<521 & !is.na(mindistance),]$mindistance,
+                      yvector=abs(weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot>346 & pos_in_uniprot<521 & !is.na(mindistance),]$`mean_kcal/mol`),
+                      tit="Figure4b_Clobe_allmutations")
+
+#all mutations - negative ddG
+fit_exponential_curve(xvector=weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance) & `mean_kcal/mol`<0,]$mindistance,
+                      yvector=abs(weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance)  & `mean_kcal/mol`<0,]$`mean_kcal/mol`),
+                      tit="Figure4c_allsites_mutations_ddG<0")
+
+#all mutations - positive ddG
+fit_exponential_curve(xvector=weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance) & `mean_kcal/mol`>0,]$mindistance,
+                      yvector=abs(weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance)  & `mean_kcal/mol`>0,]$`mean_kcal/mol`),
+                      tit="Figure4c_allsites_mutations_ddG>0")
+
+#subsampling the positive ddG data to test for larger decay than negative ddG
+neg_muts<-abs(weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance)  & `mean_kcal/mol`<0,]$`mean_kcal/mol`)
+pos_muts<-abs(weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance)  & `mean_kcal/mol`>0,]$`mean_kcal/mol`)
+
+pos_muts_mindistances<-weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance)  & `mean_kcal/mol`>0,]$mindistance
+neg_muts_mindistances<-weights_kdkin_ab_activity_sasa_anno_distances[pos_in_uniprot<521 & !is.na(mindistance)  & `mean_kcal/mol`<0,]$mindistance
+
+var=c(neg_muts,pos_muts)
+label=c(rep("neg",length(neg_muts)),rep("pos",length(pos_muts)))
+distances=c(neg_muts_mindistances,pos_muts_mindistances)
+  
+mydata<-data.frame(var,label,distances)
+
+#approximate density function of neg ddG mutations
+neg_ddG_density <- density(neg_muts,bw=0.05)
+pos_ddG_density <- density(pos_muts,bw=0.05)
+
+sampling_probs<-c()
+for (mut in pos_muts){
+  prob_neg<-neg_ddG_density$y[which.min(abs(neg_ddG_density$x-mut))]
+  prob_pos<-pos_ddG_density$y[which.min(abs(pos_ddG_density$x-mut))]
+  sampling_probs<-c(sampling_probs,prob_neg/prob_pos)
+}
+
+fitted_decay_values<-c()
+set.seed(13)
+for (i in seq(10000)){
+
+#sample points from pos ddG mutations using the previous density function
+matching_idx<- sample(which(label=='pos'), length(neg_muts), replace=TRUE,
+                      prob=sampling_probs/sum(sampling_probs))
+
+#plot it
+pos_mut_sampled<-mydata$var[matching_idx]
+pos_mut_distances<-mydata$distances[matching_idx]
+neg_mut<-mydata$var[label == "neg"]
+neg_mut_distances<-mydata$distances[label == "neg"]
+
+df_toplot<-data.table(var=c(pos_mut_sampled,neg_mut),
+                      distances=c(pos_mut_distances,neg_mut_distances),
+                      class=c(rep("pos sampled",length(pos_mut_sampled)),
+                              rep("neg",length(neg_mut))))
+if (i==1){
+ggplot(df_toplot) +  aes(x = var , fill=class)  + geom_histogram( position="identity", alpha=0.5 , bins = 100 )+
+    theme_classic()
+ggsave("output_files/FigureS4c_matched_distribution_of_muteffects_posneg.pdf")
+fitted_decay_values<-c(fitted_decay_values,
+                       fit_exponential_curve(xvector=pos_mut_distances,
+                      yvector=pos_mut_sampled,
+                      tit="FigureS4d_subsampled_density",plotfig=TRUE,writepar=TRUE)[2])
+
+
+}else{
+fitted_decay_values<-c(fitted_decay_values,
+                       fit_exponential_curve(xvector=pos_mut_distances,
+                      yvector=pos_mut_sampled,
+                      tit="FigureS4d_subsampled_density",plotfig=FALSE,writepar=TRUE)[2])
+}}
+
+median(fitted_decay_values)
+max(fitted_decay_values)
+
+(length(which(fitted_decay_values> (-0.017)))+1)/10000
+
+ggplot(data.table(fitted_decay_values))+
+  geom_density(aes(x=fitted_decay_values))+
+  geom_vline(aes(xintercept=median(fitted_decay_values)))+
+  geom_vline(aes(xintercept=-0.017),col="red",linetype="dashed")+
+  theme_classic()
+ggsave("output_files/FigureS4e_distribution_of_decays_subssamples.pdf")
+
+
+
+
+```
+
+
+```{r secondary structure elements}
+
+#distance-corrected mutation effects
+
+library(msir)
+weights_kdkin_ab_activity_sasa_anno_distances_corrected<-weights_kdkin_ab_activity_sasa_anno_distances[!is.na(mindistance) & pos_in_uniprot<521,]
+weights_kdkin_ab_activity_sasa_anno_distances_corrected<-weights_kdkin_ab_activity_sasa_anno_distances_corrected[order(mindistance),]
+#fit nonparametric curve
+loess_fit<-loess.sd(x=weights_kdkin_ab_activity_sasa_anno_distances_corrected$mindistance,
+         y=weights_kdkin_ab_activity_sasa_anno_distances_corrected$`mean_kcal/mol`)
+
+weights_kdkin_ab_activity_sasa_anno_distances_corrected$fitted<-loess_fit$y
+weights_kdkin_ab_activity_sasa_anno_distances_corrected[,residuals:=`mean_kcal/mol`-fitted]
+
+`%notin%`<-Negate(`%in%`)
+
+ggplot(weights_kdkin_ab_activity_sasa_anno_distances_corrected[pos_in_uniprot<518 &
+                      pos_in_uniprot %notin% c(277,279,281,282,284,296,298,389,391,394,396,407,428)])+
+  geom_boxplot(aes(y=residuals,x=secondary_structure_uniprot),outlier.shape = NA)+
+  geom_hline(aes(yintercept=0),col="red",linetype="dashed")+
+  theme_classic()
+ggsave("output_files/FigureS4k_distance_corrected_effects_secondary_structure.pdf")
+
+
+#all mutations - decay at secondary structure elements
+weights_kdkin_ab_activity_sasa_anno_distances[secondary_structure_uniprot=="",secondary_structure_uniprot:="loop"]
+table(weights_kdkin_ab_activity_sasa_anno_distances$secondary_structure_uniprot)
+
+fit_exponential_curve(x=weights_kdkin_ab_activity_sasa_anno_distances[secondary_structure_uniprot=="helix" & pos_in_uniprot<521 & !is.na(mindistance),]$mindistance,
+                      y=abs(weights_kdkin_ab_activity_sasa_anno_distances[secondary_structure_uniprot=="helix" & pos_in_uniprot<521 & !is.na(mindistance),]$`mean_kcal/mol`),
+                      tit="FigureS4l_alpha helix")
+fit_exponential_curve(x=weights_kdkin_ab_activity_sasa_anno_distances[secondary_structure_uniprot=="beta strand" & pos_in_uniprot<521 & !is.na(mindistance),]$mindistance,
+                      y=abs(weights_kdkin_ab_activity_sasa_anno_distances[secondary_structure_uniprot=="beta strand" & pos_in_uniprot<521 & !is.na(mindistance),]$`mean_kcal/mol`),
+                      tit="FigureS4l_beta strand")
+fit_exponential_curve(x=weights_kdkin_ab_activity_sasa_anno_distances[secondary_structure_uniprot=="turn" & pos_in_uniprot<521 & !is.na(mindistance),]$mindistance,
+                      y=abs(weights_kdkin_ab_activity_sasa_anno_distances[secondary_structure_uniprot=="turn" & pos_in_uniprot<521 & !is.na(mindistance),]$`mean_kcal/mol`),
+                      tit="FigureS4l_turn")
+fit_exponential_curve(x=weights_kdkin_ab_activity_sasa_anno_distances[secondary_structure_uniprot=="loop" & pos_in_uniprot<521 & !is.na(mindistance),]$mindistance,
+                      y=abs(weights_kdkin_ab_activity_sasa_anno_distances[secondary_structure_uniprot=="loop" & pos_in_uniprot<521 & !is.na(mindistance),]$`mean_kcal/mol`),
+                      tit="FigureS4l_loop")
+
+```
+
+#clustering of allosteric sites
+
+```{r clustering}
+
+#load distance matrix
+distmat<-as.matrix(fread("analysis_files/2SRC.pdb.distmat_Calpha.txt"))
+colnames(distmat)<-as.character(87:536)
+rownames(distmat)<-as.character(87:536)
+
+distmat_melted<-data.table(melt(distmat))
+colnames(distmat_melted)<-c("pos1","pos2","distance")
+
+active_site<-mean_ddGas_distance[res_type %in% c("active site"),]$pos_in_uniprot
+nonactive_site<-mean_ddGas_distance[res_type %notin% c("active site"),]$pos_in_uniprot
+
+allosteric_all<-mean_ddGas_distance[res_type %in% c("allosteric","allosteric_secondshell"),]$pos_in_uniprot
+allosteric_secondshell<-mean_ddGas_distance[res_type %in% c("allosteric_secondshell"),]$pos_in_uniprot
+allosteric_distant<-mean_ddGas_distance[res_type %in% c("allosteric"),]$pos_in_uniprot
+
+#all pairwise distances
+sampled_distances<-c()
+sampled_median_distances<-c()
+
+for (i in seq(1000)){
+  random<-sample(nonactive_site,size=length(allosteric_all))
+  sampled_distances<-c(sampled_distances,distmat_melted[pos1 %in% c(random,active_site) & pos2 %in% c(random,active_site) & pos2>pos1]$distance)
+  sampled_median_distances<-c(sampled_median_distances,median(distmat_melted[pos1 %in% c(random,active_site) & pos2 %in% c(random,active_site)]$distance))
+
+}
+
+ggplot()+
+geom_density(data=distmat_melted[pos1 %in% c(allosteric_all,active_site) & pos2 %in% c(allosteric_all,active_site) & pos2>pos1],aes(x=distance),bw=2,col="red")+
+geom_density(aes(x=sampled_distances),bw=2)+
+  theme_classic()
+ggsave("output_files/FigureS4f_pairwisedistances_distributions.pdf")
+
+median_real<-median(distmat_melted[pos1 %in% c(allosteric_all,active_site) & pos2 %in% c(allosteric_all,active_site) & pos2>pos1]$distance)
+length(which(sampled_median_distances<median_real))/length(sampled_median_distances)
+
+ggplot()+
+geom_density(aes(x=sampled_median_distances))+
+geom_vline(aes(xintercept=median(distmat_melted[pos1 %in% c(allosteric_all,active_site) & pos2 %in% c(allosteric_all,active_site) & pos2>pos1]$distance)),col="red")+
+  theme_classic()
+ggsave("output_files/FigureS4g_pairwisedistances_median_distributions.pdf")
+
+
+#minimum pairwise distances per residue
+sampled_mindistances<-c()
+sampled_median_mindistances<-c()
+
+for (i in seq(1000)){
+  random<-sample(nonactive_site,size=length(allosteric_all))
+  
+  mindists_by_residue <- distmat_melted[pos1!=pos2 & pos1 %in% c(random) & pos2 %in% c(random), .(mindist = min(distance)), by = .(pos1)]
+
+  sampled_mindistances<-c(sampled_mindistances,mindists_by_residue[pos1 %in% c(random),]$mindist)
+  sampled_median_mindistances<-c(sampled_median_mindistances,median(mindists_by_residue[pos1 %in% c(random,active_site),]$mindist))
+}
+
+
+ggplot()+
+geom_density(data=distmat_melted[pos1!=pos2 & pos1 %in% c(allosteric_all) & pos2 %in% c(allosteric_all), .(mindist = min(distance)), by = .(pos1)],aes(x=mindist),bw=2,col="red")+
+geom_density(aes(x=sampled_mindistances),bw=2)+
+  theme_classic()
+ggsave("output_files/FigureS4h_mindistances_distributions.pdf")
+
+
+median_real<-median(distmat_melted[pos1!=pos2 & pos1 %in% c(allosteric_all) & pos2 %in% c(allosteric_all), .(mindist = min(distance)), by = .(pos1)]$mindist)
+length(which(sampled_median_mindistances<median_real))/length(sampled_median_mindistances)
+
+ggplot()+
+geom_density(aes(x=sampled_median_mindistances))+
+geom_vline(aes(xintercept=median_real),col="red")+
+  theme_classic()
+ggsave("output_files/FigureS4i_mindistances_median.pdf")
+
+
+```
+
+#direction dependence
+
+```{r direction dependence}
+
+#calculate distance vectors in x,y,z coordinates, not 3D
+#plot decay across the individual components of the distance
+
+projected_distances_cat<-fread("analysis_files/2SRC.form.CAT.tab.pdb_pairwise_distances_xyz.txt")[, .(xdistance_cat = xdistance[which.min(abs(xdistance))],ydistance_cat = ydistance[which.min(abs(ydistance))],zdistance_cat = zdistance[which.min(abs(zdistance))]),by = .(kinase_resno)]
+
+projected_distances_lig<-fread("analysis_files/2SRC.form.ligand.tab.pdb_pairwise_distances_xyz.txt")[, .(xdistance_lig = xdistance[which.min(abs(xdistance))],ydistance_lig = ydistance[which.min(abs(ydistance))],zdistance_lig = zdistance[which.min(abs(zdistance))]),by = .(kinase_resno)]
+
+projected_distances_sub<-fread("analysis_files/2SRC.form.SUBSTRATEp.tab.pdb_pairwise_distances_xyz.txt")[, .(xdistance_sub = xdistance[which.min(abs(xdistance))],ydistance_sub = ydistance[which.min(abs(ydistance))],zdistance_sub = zdistance[which.min(abs(zdistance))]),by = .(kinase_resno)]
+
+projected_distances<-merge(merge(projected_distances_cat,projected_distances_lig,by="kinase_resno"),projected_distances_sub,by="kinase_resno")
+projected_distances[,pos_in_uniprot:=kinase_resno+3]
+
+projected_distances_min<-projected_distances[, .(
+  xdistance_min = c(xdistance_cat,xdistance_lig,xdistance_sub)[which.min(abs(c(xdistance_cat,xdistance_lig,xdistance_sub)))],
+  ydistance_min = c(ydistance_cat,ydistance_lig,ydistance_sub)[which.min(abs(c(ydistance_cat,ydistance_lig,ydistance_sub)))],
+  zdistance_min = c(zdistance_cat,zdistance_lig,zdistance_sub)[which.min(abs(c(zdistance_cat,zdistance_lig,zdistance_sub)))]),by = .(pos_in_uniprot)]
+
+
+weights_kdkin_ab_activity_sasa_anno_distances_projected<-merge(weights_kdkin_ab_activity_sasa_anno_distances,projected_distances_min,
+                                                     by="pos_in_uniprot")
+
+#min
+ggplot(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & abs(ydistance_min)<5 & abs(zdistance_min)<5,])+
+  geom_point(aes(x=xdistance_min,`mean_kcal/mol`))
+ggplot(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & abs(xdistance_min)<5 & abs(zdistance_min)<5,])+
+  geom_point(aes(x=ydistance_min,`mean_kcal/mol`))
+ggplot(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & abs(xdistance_min)<5 & abs(ydistance_min)<5,])+
+  geom_point(aes(x=zdistance_min,`mean_kcal/mol`))
+
+#fit decay in the 6 directions and plot together
+
+side<-10
+
+#x
+fit_exponential_curve(x=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & xdistance_min>-2 & abs(ydistance_min)<side & abs(zdistance_min)<side,]$xdistance_min),
+                      y=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & xdistance_min>-2 & abs(ydistance_min)<side & abs(zdistance_min)<side,]$`mean_kcal/mol`),
+                      tit="FigureS4j_xdistance_positive.pdf")
+
+fit_exponential_curve(x=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & xdistance_min<2 & abs(ydistance_min)<side & abs(zdistance_min)<side,]$xdistance_min),
+                      y=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & xdistance_min<2 & abs(ydistance_min)<side & abs(zdistance_min)<side,]$`mean_kcal/mol`),
+                      tit="FigureS4j_xdistance_negative.pdf")
+
+#y
+fit_exponential_curve(x=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & ydistance_min>-2 & abs(zdistance_min)<side & abs(xdistance_min)<side,]$ydistance_min),
+                      y=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & ydistance_min>-2 & abs(zdistance_min)<side & abs(xdistance_min)<side,]$`mean_kcal/mol`),
+                      tit="FigureS4j_ydistance_positive.pdf")
+
+fit_exponential_curve(x=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & ydistance_min<2 & abs(zdistance_min)<side & abs(xdistance_min)<side,]$ydistance_min),
+                      y=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & ydistance_min<2 & abs(zdistance_min)<side & abs(xdistance_min)<side,]$`mean_kcal/mol`),
+                      tit="FigureS4j_ydistance_negative.pdf")
+
+#z
+fit_exponential_curve(x=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & zdistance_min>-2 & abs(ydistance_min)<side & abs(xdistance_min)<side,]$zdistance_min),
+                      y=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & zdistance_min>-2 & abs(ydistance_min)<side & abs(xdistance_min)<side,]$`mean_kcal/mol`),
+                      tit="FigureS4j_zdistance_positive.pdf")
+
+fit_exponential_curve(x=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & zdistance_min<2 & abs(ydistance_min)<side & abs(xdistance_min)<side,]$zdistance_min),
+                      y=abs(weights_kdkin_ab_activity_sasa_anno_distances_projected[pos_in_uniprot<521 & zdistance_min<2 & abs(ydistance_min)<side & abs(xdistance_min)<side,]$`mean_kcal/mol`),
+                      tit="FigureS4j_zdistance_negative.pdf")
+
+
+#plot exponential decays together
+expdecay<-function(a,b,x){return(a*exp(b*x))}
+
+
+ggplot()+
+  geom_line(aes(x=seq(0:25),y=expdecay(1.094,-0.308,seq(0,25))),col="red")+
+  geom_line(aes(x=seq(0:25),y=expdecay(1.059,-0.102,seq(0,25))),col="red",linetype="dashed")+
+  geom_line(aes(x=seq(0:25),y=expdecay(0.989,-0.053,seq(0,25))),col="blue")+
+  geom_line(aes(x=seq(0:25),y=expdecay(1.009,-0.168,seq(0,25))),col="blue",linetype="dashed")+
+  geom_line(aes(x=seq(0:25),y=expdecay(1.086,-0.073,seq(0,25))),col="orange")+
+  geom_line(aes(x=seq(0:25),y=expdecay(1.102,-0.068,seq(0,25))),col="orange",linetype="dashed")+
+  ylab("ddGa (exponential fit)")+
+  xlab("distance from active site")+
+  theme_classic()
+ggsave("output_files/Figure4d_expdecays_alldirections_10A.pdf")
+
+
+
+
+```
+
+
+
+#contacts
+
+```{r contacts}
+
+#contact data
+inactive_contacts<-fread("analysis_files/2SRC.getcontacts.form.tsv")
+inactive_contacts[,contact:=paste(V3,V4,V2,sep="_")]
+active_contacts<-fread("analysis_files/1Y57.getcontacts.form.tsv")
+active_contacts[,contact:=paste(V3,V4,V2,sep="_")]
+
+shared<-active_contacts$contact[which(active_contacts$contact %in% inactive_contacts$contact)]
+active<-active_contacts$contact[which(active_contacts$contact %notin% inactive_contacts$contact)]
+inactive<-inactive_contacts$contact[which(inactive_contacts$contact %notin% active_contacts$contact)]
+
+contacts<-data.table(contact=c(shared,active,inactive),
+           structure=c(rep("non-specific",length(shared)),
+                       rep("active",length(active)),
+                       rep("inactive",length(inactive))))
+
+contacts$type<-unlist(lapply(contacts$contact,FUN=function(string){
+  return(strsplit(string,"_")[[1]][3])
+}))
+
+contacts$pos1<-unlist(lapply(contacts$contact,FUN=function(string){
+  return(strsplit(strsplit(string,"_")[[1]][1],":")[[1]][3])
+}))
+
+contacts$pos2<-unlist(lapply(contacts$contact,FUN=function(string){
+  return(strsplit(strsplit(string,"_")[[1]][2],":")[[1]][3])
+}))
+
+contacts[pos1>264 & pos2>264,intra_inter:="KD_KD"]
+contacts[pos1>264 & pos2<264,intra_inter:="KD_reg"]
+contacts[pos1<264 & pos2>264,intra_inter:="KD_reg"]
+contacts[pos1<264 & pos2<264,intra_inter:="reg_reg"]
+
+#remove duplicated sbs
+contacts_sb<-contacts[type=="sb",]
+contacts_sb<-contacts_sb[!duplicated(contacts_sb[,c("structure","type","pos1","pos2")]),]
+contacts<-contacts[type !="sb",]
+contacts<-rbind(contacts_sb,contacts)
+
+#reclassify hbss as hbss_sb when they are also a salt bridge 
+contacts$min<-apply(contacts,MARGIN = 1,FUN=function(row){return(min(row[4:5]))})
+contacts$max<-apply(contacts,MARGIN = 1,FUN=function(row){return(max(row[4:5]))})
+contacts[,pos1_pos2:=paste(min,max,sep="_")]
+
+contacts[type=="hbss" & structure=="active" & pos1_pos2 %in% contacts[type=="sb" & structure=="active",]$pos1_pos2,type:="hbss_sb"]
+contacts[type=="hbss" & structure=="inactive" & pos1_pos2 %in% contacts[type=="sb" & structure=="inactive",]$pos1_pos2,type:="hbss_sb"]
+contacts[type=="hbss" & structure=="non-specific" & pos1_pos2 %in% contacts[type=="sb" & structure=="non-specific",]$pos1_pos2,type:="hbss_sb"]
+
+#remove duplicated contacts
+which(table(contacts[type=="sb",]$pos1_pos2)>1)
+contacts[type=="sb" & pos1_pos2=="386_388",]$structure<-"non-specific"
+contacts<-contacts[!duplicated(paste(pos1_pos2,type,sep="_"))]
+
+
+plot_mut_effects_contacts<-function(distribution,contact_type){
+
+activity_weights<-data.table(weights_kdkin_ab_activity)
+
+#adjust positions to match 2SRC and 1Y57 numbering
+activity_weights[,Pos_ref:=Pos_ref+264]
+
+active_residues<-unique(c(contacts[intra_inter==distribution & type %in% c(contact_type) & structure=="active"]$pos1,
+         contacts[intra_inter==distribution & type %in% c(contact_type) & structure=="active"]$pos2))
+inactive_residues<-unique(c(contacts[intra_inter==distribution & type %in% c(contact_type) & structure=="inactive"]$pos1,
+         contacts[intra_inter==distribution & type %in% c(contact_type) & structure=="inactive"]$pos2))
+nonspecific_residues<-unique(c(contacts[intra_inter==distribution & type %in% c(contact_type) & structure=="non-specific"]$pos1,
+         contacts[intra_inter==distribution & type %in% c(contact_type) & structure=="non-specific"]$pos2))
+swapping_residues<-union(intersect(active_residues,unique(c(contacts[intra_inter==distribution & type %in% c("hbss","sb","pc","hbsb") & structure=="inactive"]$pos1,
+         contacts[intra_inter==distribution & type %in% c("hbss","sb","pc","hbsb") & structure=="inactive"]$pos2))),intersect(inactive_residues,unique(c(contacts[intra_inter==distribution & type %in% c("hbss","sb","pc","hbsb") & structure=="active"]$pos1,contacts[intra_inter==distribution & type %in% c("hbss","sb","pc","hbsb") & structure=="active"]$pos2))))
+
+#all weights
+activity_weights[,contact:="no contact"]
+activity_weights[Pos_ref %in% active_residues,contact:="active_state"]
+activity_weights[Pos_ref %in% inactive_residues,contact:="inactive_state"]
+activity_weights[Pos_ref %in% nonspecific_residues,contact:="non-specific"]
+activity_weights[Pos_ref %in% swapping_residues,contact:="swapping"]
+
+activity_weights$contact<-factor(activity_weights$contact,
+                                         levels=c("active_state","swapping","inactive_state","non-specific","no contact"))
+
+
+print(table(activity_weights[Pos_ref<518,]$contact))
+
+contact_plot<-ggplot(activity_weights[Pos_ref<518 & contact != "no contact",])+
+  geom_jitter(aes(x=contact,y=abs(`mean_kcal/mol`),col=contact),size=2)+
+  geom_violin(aes(x=contact,y=abs(`mean_kcal/mol`)),col="black",fill=NA)+
+  geom_boxplot(aes(x=contact,y=abs(`mean_kcal/mol`)),col="black",fill=NA,width=0.07,outlier.shape = NA)+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+        ggtitle(paste("activity",contact_type,distribution,sep=" "))+
+  scale_color_manual(values=alpha(c("red","orange","blue","purple"),0.5))
+  ggsave(paste(paste(paste("output_files/Figure4f_contacts",contact_type,sep = "_"),distribution,sep = "_"),"pdf",sep="."),plot=contact_plot,
+         width = 8.5,height = 5)
+  
+  
+#wilcoxon rank sum
+if (nrow(activity_weights[contact=="active_state",])>1){
+print(wilcox.test(abs(activity_weights[Pos_ref<518 & contact == "active_state",]$`mean_kcal/mol`),
+              abs(activity_weights[Pos_ref<518 & contact == "inactive_state",]$`mean_kcal/mol`))$p.value)
+print(mean(abs(activity_weights[Pos_ref<518 & contact == "active_state",]$`mean_kcal/mol`))-
+              mean(abs(activity_weights[Pos_ref<518 & contact == "inactive_state",]$`mean_kcal/mol`)))
+}
+print(wilcox.test(abs(activity_weights[Pos_ref<518 & contact == "swapping",]$`mean_kcal/mol`),
+                  abs(activity_weights[Pos_ref<518 & contact == "inactive_state",]$`mean_kcal/mol`))$p.value)
+print(mean(abs(activity_weights[Pos_ref<518 & contact == "swapping",]$`mean_kcal/mol`))-
+              mean(abs(activity_weights[Pos_ref<518 & contact == "inactive_state",]$`mean_kcal/mol`)))
+  
+
+residue_classes<-activity_weights[,c("Pos_ref","contact")]
+residue_classes[,Pos_ref:=Pos_ref+3]
+
+return(residue_classes[!duplicated(Pos_ref)])
+
+}
+
+
+sb_contact_classification<-plot_mut_effects_contacts("KD_KD","sb")
+pc_contact_classification<-plot_mut_effects_contacts("KD_KD","pc")
+hbsb_contact_classification<-plot_mut_effects_contacts("KD_KD","hbsb")
+hbss_contact_classification<-plot_mut_effects_contacts("KD_KD","hbss")
+
+p.adjust(c(4.301903e-12,9.085585e-22,2.278699e-08,8.126133e-07,0.6440255,1.95316e-17,1.930425e-08),method = "fdr")
+
+
+colnames(sb_contact_classification)[2]<-paste("sb",colnames(sb_contact_classification)[2],sep="_")
+colnames(pc_contact_classification)[2]<-paste("pc",colnames(pc_contact_classification)[2],sep="_")
+colnames(hbsb_contact_classification)[2]<-paste("hbsb",colnames(hbsb_contact_classification)[2],sep="_")
+colnames(hbss_contact_classification)[2]<-paste("hbss",colnames(hbss_contact_classification)[2],sep="_")
+
+
+df_list <- list(sb_contact_classification, pc_contact_classification, hbsb_contact_classification, hbss_contact_classification)
+contact_classification_all<-Reduce(function(x, y) merge(x, y, all=TRUE), df_list)
+
+
+#compute the sum of ddGas for contacts and write to table to generate a pseudobonds visualization file
+
+#adjust numbering to that of structures for merging
+mean_ddGas[,Pos_ref:=pos_in_uniprot-3]
+
+save_contact_sums<-function(distribution,contact_type){
+  
+  contacts_energies<-data.table(contacts)
+  contacts_energies$pos1<-as.numeric(contacts_energies$pos1)
+  contacts_energies$pos2<-as.numeric(contacts_energies$pos2)
+  contacts_energies<-merge(contacts_energies,mean_ddGas,by.x="pos1",by.y="Pos_ref",all.x = TRUE)
+  contacts_energies<-merge(contacts_energies,mean_ddGas,by.x="pos2",by.y="Pos_ref",all.x = TRUE)
+
+  pos <- position_jitter(width = 0.3, seed = 2)
+  
+  contacts_energies[,ddG_sum:=mean_ddGa.x+mean_ddGa.y]
+  contacts_energies[,ddG_sum_positive:=ddG_sum-min(ddG_sum,na.rm = TRUE)]
+
+  contacts_energies[,swapping:="no"]
+  
+  active_residues<-unique(c(contacts[intra_inter==distribution & type %in% c("hbss","sb","pc","hbsb") & structure=="active"]$pos1,
+         contacts[intra_inter==distribution & type==contact_type & structure=="active"]$pos2))
+  inactive_residues<-unique(c(contacts[intra_inter==distribution & type %in% c("hbss","sb","pc","hbsb") & structure=="inactive"]$pos1,
+         contacts[intra_inter==distribution & type==contact_type & structure=="inactive"]$pos2))
+  nonspecific_residues<-unique(c(contacts[intra_inter==distribution & type==contact_type & structure=="non-specific"]$pos1,
+         contacts[intra_inter==distribution & type==contact_type & structure=="non-specific"]$pos2))
+  
+  contacts_energies[type %in% c("hbss","sb","pc","hbsb") & (pos1 %in% active_residues | pos2 %in% active_residues) & structure %in% c("inactive"), swapping:="yes"]
+  contacts_energies[type %in% c("hbss","sb","pc","hbsb") & (pos1 %in% active_residues | pos2 %in% active_residues) & structure %in% c("inactive"), swapping:="yes"]
+  contacts_energies[type %in% c("hbss","sb","pc","hbsb") & (pos1 %in% active_residues | pos2 %in% active_residues) & structure %in% c("inactive"), swapping:="yes"]
+  
+  contacts_energies[type %in% c("hbss","sb","pc","hbsb") & (pos1 %in% inactive_residues | pos2 %in% inactive_residues) & structure %in% c("active"), swapping:="yes"]
+  contacts_energies[type %in% c("hbss","sb","pc","hbsb") & (pos1 %in% inactive_residues | pos2 %in% inactive_residues) & structure %in% c("active"), swapping:="yes"]
+  contacts_energies[type %in% c("hbss","sb","pc","hbsb") & (pos1 %in% inactive_residues | pos2 %in% inactive_residues) & structure %in% c("active"), swapping:="yes"]
+  
+  for (struct in unique(contacts_energies[pos1<518 & pos2<518 & pos1>264 & pos2>264 & type==contact_type & intra_inter==distribution,]$structure)){
+  
+  write.table(contacts_energies[pos1<518 & pos2<518 & pos1>264 & pos2>264 & type==contact_type & intra_inter==distribution & structure==as.character(struct),],
+              file=paste(paste("output_files/Figure4e_contactvisualization",contact_type,struct,sep="_"),".txt",sep = ""),
+              quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  
+  }
+}
+
+
+for (contact_type in c("sb","pc","hbsb","hbss")){
+  for (distribution in c("KD_KD")){
+
+    save_contact_sums(distribution,contact_type)
+    
+  }
+}
+
+
+
+```
+
+
+#mutations to and from biases
+
+```{r activating and inactivating mutations - mut aa enrichments}
+
+table(weights_kdkin_ab_activity_sasa_anno$mut_aa)
+table(weights_kdkin_ab_activity_sasa_anno[class=="activating",]$mut_aa)
+table(weights_kdkin_ab_activity_sasa_anno[class=="inactivating",]$mut_aa)
+
+weights_kdkin_ab_activity_sasa_anno$mut_aa<-factor(weights_kdkin_ab_activity_sasa_anno$mut_aa,
+                                            levels=strsplit("DEKRHSTQNCGPAMLIVFYW","")[[1]])
+
+
+active_site<-c(277, 279, 281, 282, 284, 296, 298, 389, 391, 394, 396, 407, 428)
+
+mut_aa_counts_by_class<-data.table(t(rbind(tabulate(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %notin% active_site,]$mut_aa), tabulate(weights_kdkin_ab_activity_sasa_anno[class=="activating" & pos_in_uniprot %notin% active_site,]$mut_aa), tabulate(weights_kdkin_ab_activity_sasa_anno[class=="inactivating" & pos_in_uniprot %notin% active_site,]$mut_aa))))
+colnames(mut_aa_counts_by_class)<-c("all_mutations","activating","inactivating")
+mut_aa_counts_by_class$mut_aa<-names(table(weights_kdkin_ab_activity_sasa_anno$mut_aa))
+
+mut_aa_counts_by_class[,not_inactivating:=all_mutations-inactivating]
+mut_aa_counts_by_class[,not_activating:=all_mutations-activating]
+
+mut_aa_counts_by_class$mut_aa<-factor(mut_aa_counts_by_class$mut_aa,
+                                            levels=strsplit("DEKRHSTQNCGPAMLIVFYW","")[[1]])
+
+
+mut_aa_counts_by_class[mut_aa %in% strsplit("AVILMFWY","")[[1]],mut_aa_type:="hydrophobic"]
+mut_aa_counts_by_class[mut_aa %in% strsplit("HDEKR","")[[1]],mut_aa_type:="charged"]
+mut_aa_counts_by_class[mut_aa %in% strsplit("QNST","")[[1]],mut_aa_type:="polar"]
+mut_aa_counts_by_class[mut_aa %in% c("G"),mut_aa_type:="glycine"]
+mut_aa_counts_by_class[mut_aa %in% c("P"),mut_aa_type:="proline"]
+mut_aa_counts_by_class[mut_aa %in% c("C"),mut_aa_type:="cysteine"]
+
+
+
+mut_aa_counts_by_class$fet_activating_p<-apply(mut_aa_counts_by_class,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[2]),as.numeric(row[6])),c(sum(mut_aa_counts_by_class$activating)-as.numeric(row[2]),
+                                                                    sum(mut_aa_counts_by_class$not_activating)-as.numeric(row[6]))))
+  return(fet$p.value)
+})
+mut_aa_counts_by_class$fet_activating_OR<-apply(mut_aa_counts_by_class,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[2]),as.numeric(row[6])),c(sum(mut_aa_counts_by_class$activating)-as.numeric(row[2]),
+                                                                    sum(mut_aa_counts_by_class$not_activating)-as.numeric(row[6]))))
+  return(fet$estimate)
+})
+
+mut_aa_counts_by_class$fet_inactivating_p<-apply(mut_aa_counts_by_class,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[3]),as.numeric(row[5])),c(sum(mut_aa_counts_by_class$inactivating)-as.numeric(row[3]),
+                                                                    sum(mut_aa_counts_by_class$not_inactivating)-as.numeric(row[5]))))
+  return(fet$p.value)
+})
+mut_aa_counts_by_class$fet_inactivating_OR<-apply(mut_aa_counts_by_class,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[3]),as.numeric(row[5])),c(sum(mut_aa_counts_by_class$inactivating)-as.numeric(row[3]),
+                                                                    sum(mut_aa_counts_by_class$not_inactivating)-as.numeric(row[5]))))
+  return(fet$estimate)
+})
+
+mut_aa_counts_by_class[,fet_inactivating_FDR:=p.adjust(fet_inactivating_p,method="fdr")]
+mut_aa_counts_by_class[,fet_activating_FDR:=p.adjust(fet_activating_p,method="fdr")]
+
+mut_aa_counts_by_class[fet_activating_FDR<0.1 & fet_activating_OR>1,]                             
+mut_aa_counts_by_class[fet_inactivating_FDR<0.1 & fet_inactivating_OR>1,]                             
+
+mut_aa_counts_by_class[fet_activating_FDR<0.1,sig_activating:="sig"]
+mut_aa_counts_by_class[fet_inactivating_FDR<0.1,sig_inactivating:="sig"]
+
+ggplot(mut_aa_counts_by_class)+
+  geom_col(aes(x=mut_aa,y=log2(fet_activating_OR),fill=mut_aa_type))+
+  geom_text(data = mut_aa_counts_by_class[sig_activating == "sig", ], aes(x =
+                                                                             mut_aa, y = log2(fet_activating_OR)), label = "*") +
+  theme_classic()
+ggsave("output_files/Figure4g_activating_mutations_mut_aa_enrichment.pdf")
+
+ggplot(mut_aa_counts_by_class)+
+  geom_col(aes(x=mut_aa,y=log2(fet_inactivating_OR),fill=mut_aa_type))+
+   geom_text(data = mut_aa_counts_by_class[sig_inactivating == "sig", ], aes(x =
+                                                                             mut_aa, y = log2(fet_inactivating_OR)), label = "*") +
+  theme_classic()
+ggsave("output_files/Figure4g_inactivating_mutations_mut_aa_enrichment.pdf")
+
+sum(mut_aa_counts_by_class[mut_aa %in% c("M","V","L","I","F","Y","W","A"),]$activating)
+sum(mut_aa_counts_by_class[mut_aa %in% c("M","V","L","I","F","Y","W","A"),]$not_activating)
+#35 and 1904
+sum(mut_aa_counts_by_class$activating)
+sum(mut_aa_counts_by_class$not_activating)
+#60 and 4804
+
+fisher.test(cbind(c(35,1904),c(60-35,4804-1993)))
+#hydrophobics activating as a group, OR=2.07, p=0.007604
+
+```
+
+```{r activating and inactivating mutations - wt aa enrichments}
+
+table(weights_kdkin_ab_activity_sasa_anno$wt_aa)
+table(weights_kdkin_ab_activity_sasa_anno[class=="activating",]$wt_aa)
+table(weights_kdkin_ab_activity_sasa_anno[class=="inactivating",]$wt_aa)
+
+weights_kdkin_ab_activity_sasa_anno$wt_aa<-factor(weights_kdkin_ab_activity_sasa_anno$wt_aa,
+                                            levels=strsplit("DEKRHSTQNCGPAMLIVFYW","")[[1]])
+
+wt_aa_counts_by_class<-data.table(t(rbind(tabulate(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %notin% active_site,]$wt_aa), tabulate(weights_kdkin_ab_activity_sasa_anno[class=="activating" & pos_in_uniprot %notin% active_site,]$wt_aa), tabulate(weights_kdkin_ab_activity_sasa_anno[class=="inactivating" & pos_in_uniprot %notin% active_site,]$wt_aa))))
+colnames(wt_aa_counts_by_class)<-c("all_mutations","activating","inactivating")
+wt_aa_counts_by_class$wt_aa<-names(table(weights_kdkin_ab_activity_sasa_anno$wt_aa))
+
+wt_aa_counts_by_class[,not_inactivating:=all_mutations-inactivating]
+wt_aa_counts_by_class[,not_activating:=all_mutations-activating]
+
+wt_aa_counts_by_class$wt_aa<-factor(wt_aa_counts_by_class$wt_aa,
+                                            levels=strsplit("DEKRHSTQNCGPAMLIVFYW","")[[1]])
+
+
+wt_aa_counts_by_class[wt_aa %in% strsplit("AVILMFWY","")[[1]],wt_aa_type:="hydrophobic"]
+wt_aa_counts_by_class[wt_aa %in% strsplit("HDEKR","")[[1]],wt_aa_type:="charged"]
+wt_aa_counts_by_class[wt_aa %in% strsplit("QNST","")[[1]],wt_aa_type:="polar"]
+wt_aa_counts_by_class[wt_aa %in% c("G"),wt_aa_type:="glycine"]
+wt_aa_counts_by_class[wt_aa %in% c("P"),wt_aa_type:="proline"]
+wt_aa_counts_by_class[wt_aa %in% c("C"),wt_aa_type:="cysteine"]
+
+
+
+wt_aa_counts_by_class$fet_activating_p<-apply(wt_aa_counts_by_class,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[2]),as.numeric(row[6])),c(sum(wt_aa_counts_by_class$activating)-as.numeric(row[2]),
+                                                                    sum(wt_aa_counts_by_class$not_activating)-as.numeric(row[6]))))
+  return(fet$p.value)
+})
+wt_aa_counts_by_class$fet_activating_OR<-apply(wt_aa_counts_by_class,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[2]),as.numeric(row[6])),c(sum(wt_aa_counts_by_class$activating)-as.numeric(row[2]),
+                                                                    sum(wt_aa_counts_by_class$not_activating)-as.numeric(row[6]))))
+  return(fet$estimate)
+})
+
+wt_aa_counts_by_class$fet_inactivating_p<-apply(wt_aa_counts_by_class,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[3]),as.numeric(row[5])),c(sum(wt_aa_counts_by_class$inactivating)-as.numeric(row[3]),
+                                                                    sum(wt_aa_counts_by_class$not_inactivating)-as.numeric(row[5]))))
+  return(fet$p.value)
+})
+wt_aa_counts_by_class$fet_inactivating_OR<-apply(wt_aa_counts_by_class,MARGIN=1,function(row){
+  fet<-fisher.test(cbind(c(as.numeric(row[3]),as.numeric(row[5])),c(sum(wt_aa_counts_by_class$inactivating)-as.numeric(row[3]),
+                                                                    sum(wt_aa_counts_by_class$not_inactivating)-as.numeric(row[5]))))
+  return(fet$estimate)
+})
+
+wt_aa_counts_by_class[,fet_inactivating_FDR:=p.adjust(fet_inactivating_p,method="fdr")]
+wt_aa_counts_by_class[,fet_activating_FDR:=p.adjust(fet_activating_p,method="fdr")]
+
+wt_aa_counts_by_class[fet_activating_FDR<0.1 & fet_activating_OR>1,]                             
+wt_aa_counts_by_class[fet_inactivating_FDR<0.1 & fet_inactivating_OR>1,]                             
+
+wt_aa_counts_by_class[fet_activating_FDR<0.1,sig_activating:="sig"]
+wt_aa_counts_by_class[fet_inactivating_FDR<0.1,sig_inactivating:="sig"]
+
+
+ggplot(wt_aa_counts_by_class) +
+  geom_col(aes(
+    x = wt_aa,
+    y = log2(fet_activating_OR),
+    fill = wt_aa_type
+  )) +
+  geom_text(data = wt_aa_counts_by_class[sig_activating == "sig", ], aes(x =
+                                                                           wt_aa, y = log2(fet_activating_OR)), label = "*") +
+  theme_classic()
+ggsave("output_files/Figure4g_activating_mutations_wt_aa_enrichment.pdf")
+
+ggplot(wt_aa_counts_by_class) +
+  geom_col(aes(
+    x = wt_aa,
+    y = log2(fet_inactivating_OR),
+    fill = wt_aa_type
+  )) +
+  geom_text(data = wt_aa_counts_by_class[sig_inactivating == "sig", ], aes(x =
+                                                                             wt_aa, y = log2(fet_inactivating_OR)), label = "*") +
+  theme_classic()
+ggsave("output_files/Figure4g_inactivating_mutations_wt_aa_enrichment.pdf")
+
+
+
+```
+
+
+
+#prediction excluding active site residues
+
+```{r linear models}
+
+weights_kdkin_ab_activity_sasa_anno_distances_contactclass<-merge(weights_kdkin_ab_activity_sasa_anno_distances,contact_classification_all,by.x="pos_in_uniprot", by.y="Pos_ref")
+
+`%notin%` <- Negate(`%in%`)
+
+#10fold xval
+
+tenfold_xval<-function(data,formula){
+
+# Set seed for reproducibility
+set.seed(13)
+data<-data[sample(1:nrow(data)), ] 
+
+# Number of folds for cross-validation
+k <- 10
+
+# assign data points to folds
+folds <- cut(seq(1, nrow(data)), breaks = k, labels = FALSE)
+
+# Initialize an empty vector to store the cross-validation results
+cv_results <- numeric(length = k)
+
+# Perform k-fold cross-validation
+for (i in 1:k) {
+  # Create training set
+  train_data <- subset(data, folds != i)
+  # Create test set
+  test_data <- subset(data, folds == i)
+  # Fit the multiple linear regression model
+  model <- lm(formula, data = train_data)
+  # Make predictions on the test set
+  predictions <- predict(model, newdata = test_data)
+  # Calculate R2
+  cv_results[i] <- cor(test_data$`mean_kcal.mol`,predictions,use="pairwise.complete.obs")**2
+}
+# Calculate the average performance across all folds
+return(c(mean(cv_results),sd(cv_results)))
+}
+
+
+#single predictors
+
+r2<-c(tenfold_xval(data=data.frame(weights_kdkin_ab_activity_sasa_anno_distances_contactclass[pos_in_uniprot<518 & pos_in_uniprot %notin% active_site,]),formula=as.formula(`mean_kcal.mol`~secondary_structure_uniprot)),
+      tenfold_xval(data=data.frame(weights_kdkin_ab_activity_sasa_anno_distances_contactclass[pos_in_uniprot<518 & pos_in_uniprot %notin% active_site,]),formula=as.formula(`mean_kcal.mol`~mut_aa)),
+      tenfold_xval(data=data.frame(weights_kdkin_ab_activity_sasa_anno_distances_contactclass[pos_in_uniprot<518 & pos_in_uniprot %notin% active_site,]),formula=as.formula(`mean_kcal.mol`~sb_contact+pc_contact+hbss_contact+hbsb_contact)),
+      tenfold_xval(data=data.frame(weights_kdkin_ab_activity_sasa_anno_distances_contactclass[pos_in_uniprot<518 & pos_in_uniprot %notin% active_site,]),formula=as.formula(`mean_kcal.mol`~wt_aa)),
+      tenfold_xval(data=data.frame(weights_kdkin_ab_activity_sasa_anno_distances_contactclass[pos_in_uniprot<518 & pos_in_uniprot %notin% active_site,]),formula=as.formula(`mean_kcal.mol`~rsasa_all)),
+      tenfold_xval(data=data.frame(weights_kdkin_ab_activity_sasa_anno_distances_contactclass[pos_in_uniprot<518 & pos_in_uniprot %notin% active_site,]),formula=as.formula(`mean_kcal.mol`~log(distance_ATP))),
+      tenfold_xval(data=data.frame(weights_kdkin_ab_activity_sasa_anno_distances_contactclass[pos_in_uniprot<518 & pos_in_uniprot %notin% active_site,]),formula=as.formula(`mean_kcal.mol`~log(distance_catD))),
+      tenfold_xval(data=data.frame(weights_kdkin_ab_activity_sasa_anno_distances_contactclass[pos_in_uniprot<518 & pos_in_uniprot %notin% active_site,]),formula=as.formula(`mean_kcal.mol`~log(distance_ATP)+log(distance_catD)+wt_aa+sb_contact+pc_contact+hbss_contact+hbsb_contact+mut_aa+rsasa_all+secondary_structure_uniprot)),
+      tenfold_xval(data=data.frame(weights_kdkin_ab_activity_sasa_anno_distances_contactclass[pos_in_uniprot<518 & pos_in_uniprot %notin% active_site,]),formula=as.formula(`mean_kcal.mol`~log(distance_ATP)+log(distance_catD)+wt_aa+sb_contact+pc_contact+hbss_contact+hbsb_contact+mut_aa+rsasa_all+secondary_structure_uniprot+secondary_structure)))
+
+
+names<-c("secondary structure type", "mutant aa","contacts","wt aa","rsasa","distance to nucleotide","distance to catalytic D","all","all plus specific secondary structure")
+toplot_r2s<-data.table(r2,names=rep(names, each = 2),statistic=rep(c("mean","sd"),times=9))
+toplot_r2s$names<-factor(toplot_r2s$names,levels=names)
+
+means<-toplot_r2s[statistic=="mean",]
+sds<-toplot_r2s[statistic=="sd",]
+means[,mean:=r2]; sds[,sd:=r2]
+
+merged_toplot<-merge(means[,c("names","mean")],sds[,c("names","sd")],by=c("names"))
+
+ggplot(merged_toplot)+
+  geom_col(aes(x=names,y=mean))+
+  geom_errorbar(aes(x=names,y=mean,ymin=mean-sd, ymax=mean+sd), width=.2)+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ggsave("output_files/Figure4h_R2_comparison.pdf")
+
+
+#plot obs vs predicted for the final model
+
+tenfold_xval_plot<-function(data,formula){
+
+set.seed(13)
+data<-data[sample(1:nrow(data)), ] 
+k <- 10
+folds <- cut(seq(1, nrow(data)), breaks = k, labels = FALSE)
+cv_results <- numeric(length = k)
+
+observed<-c()
+predicted<-c()
+
+for (i in 1:k) {
+  train_data <- subset(data, folds != i)
+  test_data <- subset(data, folds == i)
+  model <- lm(formula, data = train_data)
+  predicted<-c(predicted,predict(model, newdata = test_data))
+  observed<-c(observed,test_data$mean_kcal.mol)
+}
+# Calculate the average performance across all folds
+
+toplot<-data.table(observed,predicted)
+print(ggplot(toplot,aes(x=predicted,y=observed))+
+  geom_hex(bins=70)+
+  stat_cor()+
+  scale_fill_viridis()+
+  theme_classic())
+
+}
+
+tenfold_xval_plot(data=data.frame(weights_kdkin_ab_activity_sasa_anno_distances_contactclass[pos_in_uniprot<518 & pos_in_uniprot %notin% active_site,]),formula=as.formula(`mean_kcal.mol`~log(distance_ATP)+log(distance_catD)+wt_aa+sb_contact+pc_contact+hbss_contact+hbsb_contact+mut_aa+rsasa_all+secondary_structure_uniprot+secondary_structure))
+ggsave("output_files/Figure4i_obs_vs_predicted_all.pdf")
+
+
+```
+

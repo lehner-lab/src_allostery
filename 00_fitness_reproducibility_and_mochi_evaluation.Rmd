@@ -1,0 +1,349 @@
+---
+title: "SRC_Q20_load_and_normalize"
+author: "Toni Beltran"
+date: "18/11/2023"
+output: html_document
+---
+
+##Fitness correlations across replicates
+
+```{r load}
+
+
+library(ggplot2)
+library(data.table)
+library(GGally)
+library(viridis)
+library(ggpubr)
+
+base_dir="/Users/tbeltran/Desktop/cluster_work/54_final_github_and_zenodo_submissions/"
+
+setwd(base_dir)
+
+all_variants_SRC<-fread("./analysis_files/aa_variants_SRC_all")
+
+#Scatterplot matrix with ggpairs()
+my_fn <- function(data, mapping, ...){
+  p <- ggplot(data = data, mapping = mapping) +
+    geom_hex(bins=70) +
+    scale_fill_viridis()
+  p
+}
+
+load_and_plot_correlations<-function(Rdata_file,title,reps=3,ct_threshold,prefix){
+
+  load(Rdata_file)
+  
+  #ggpairs plots
+  if (reps==3){
+
+  print(ggpairs(all_variants[mean_count>ct_threshold & Nham_aa<3,c(17,18,19)], lower=list(continuous=my_fn),diag="blank")+ggtitle(title)+
+              theme_classic()+
+              theme(axis.text = element_text(size = 25))+
+              scale_y_continuous(breaks = c(-0.5,0,0.5), labels = c(-0.5,0,0.5))+
+              scale_x_continuous(breaks = c(-0.5,0,0.5), labels = c(-0.5,0,0.5))+
+              theme(axis.ticks.length = unit(0.05, "cm"))+
+              theme(panel.background = element_rect(color = "black", fill = NA,size=2)))
+  ggsave(paste("output_files/FigureS1a",paste(title,"replicate_correlations.pdf",sep="_"),sep="_"),height = 7,width=7)
+  }
+  
+  #block5 full length sandwich has a missing replicate so this part of the code is adapted for that
+  else if (reps==2){
+  print(ggpairs(all_variants[mean_count>ct_threshold & Nham_aa<3,c(15,16)], lower=list(continuous=my_fn),diag="blank")+ggtitle(title)+
+              theme_classic()+
+              theme(axis.text = element_text(size = 25))+
+              scale_y_continuous(breaks = c(-0.5,0,0.5), labels = c(-0.5,0,0.5))+
+              scale_x_continuous(breaks = c(-0.5,0,0.5), labels = c(-0.5,0,0.5))+
+              theme(axis.ticks.length = unit(0.05, "cm"))+
+              theme(panel.background = element_rect(color = "black", fill = NA,size=2)))
+  ggsave(paste(prefix,paste(title,"replicate_correlations.pdf",sep="_"),sep="_"),height = 7,width=7)
+
+  }
+  
+  #merge in synonymous variants and rename columns to add sample information
+  all_variants$variant_group<-rep("aa_variants",nrow(all_variants))
+  synonymous$variant_group<-rep("nt_synonymous_variants",nrow(synonymous))
+  all_variants<-rbind(all_variants,synonymous)
+  colnames(all_variants)[10:ncol(all_variants)]<-paste(title,colnames(all_variants[,10:ncol(all_variants)]),sep="_")
+  
+  #merge with SRC variant file
+  all_variants_anno<-merge(all_variants,all_variants_SRC,all.x = TRUE,by="aa_seq")
+  all_variants_anno[isWT==TRUE,variant_name:="WT"]
+  
+  #return
+  return(data.table(all_variants_anno))
+}
+
+
+flkin_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block1_Q20_nosingles_fitness_replicates.RData","FLkinase_block1",ct_threshold=10,prefix="output_files/FigureS7a")
+flkin_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block2_Q20_nosingles_fitness_replicates.RData","FLkinase_block2",ct_threshold=30,prefix="output_files/FigureS7a")
+flkin_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block3_Q20_nosingles_fitness_replicates.RData","FLkinase_block3",ct_threshold=30,prefix="output_files/FigureS7a")
+flkin_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block4_Q20_nosingles_fitness_replicates.RData","FLkinase_block4",ct_threshold=30,prefix="output_files/FigureS7a")
+flkin_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block5_Q20_nosingles_fitness_replicates.RData","FLkinase_block5",ct_threshold=30,prefix="output_files/FigureS7a")
+
+
+flsand_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block1_Q20_nosingles_fitness_replicates.RData","FLsandwich_block1",ct_threshold=30,prefix="output_files/FigureS7a")
+flsand_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block2_Q20_nosingles_fitness_replicates.RData","FLsandwich_block2",ct_threshold=30,prefix="output_files/FigureS7a")
+flsand_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block3_Q20_nosingles_fitness_replicates.RData","FLsandwich_block3",ct_threshold=30,prefix="output_files/FigureS7a")
+flsand_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block4_Q20_nosingles_fitness_replicates.RData","FLsandwich_block4",ct_threshold=30,prefix="output_files/FigureS7a")
+flsand_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block5_Q20_nosingles_fitness_replicates.RData","FLsandwich_block5",reps=2,ct_threshold=30,prefix="output_files/FigureS7a")
+
+
+kdkin_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block1_Q20_nosingles_fitness_replicates.RData","KDkinase_block1",ct_threshold=10,prefix="output_files/FigureS1a")
+kdkin_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block2_Q20_nosingles_fitness_replicates.RData","KDkinase_block2",ct_threshold=30,prefix="output_files/FigureS1a")
+kdkin_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block3_Q20_nosingles_fitness_replicates.RData","KDkinase_block3",ct_threshold=30,prefix="output_files/FigureS1a")
+kdkin_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block4_Q20_nosingles_fitness_replicates.RData","KDkinase_block4",ct_threshold=30,prefix="output_files/FigureS1a")
+kdkin_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block5_Q20_nosingles_fitness_replicates.RData","KDkinase_block5",ct_threshold=30,prefix="output_files/FigureS1a")
+
+
+kdab_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block1_Q20_nosingles_fitness_replicates.RData","KDabundance_block1",ct_threshold=30,prefix="output_files/FigureS1a")
+kdab_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block2_Q20_nosingles_fitness_replicates.RData","KDabundance_block2",ct_threshold=30,prefix="output_files/FigureS1a")
+kdab_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block3_Q20_nosingles_fitness_replicates.RData","KDabundance_block3",ct_threshold=30,prefix="output_files/FigureS1a")
+kdab_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block4_Q20_nosingles_fitness_replicates.RData","KDabundance_block4",ct_threshold=30,prefix="output_files/FigureS1a")
+kdab_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block5_Q20_nosingles_fitness_replicates.RData","KDabundance_block5",ct_threshold=30,prefix="output_files/FigureS1a")
+
+
+```
+
+
+
+## Normalization with WT fitness and mode of STOPS
+
+```{r scale with WT fitness and mode of STOPS}
+
+rename_fitness_sigma_cols<-function(df){
+  
+  if (ncol(df)==46){colnames(df)<-c("aa_seq","nt_seq","Nham_nt","Nham_aa","Nmut_codons","WT","indel","STOP","STOP_readthrough","count_e1_s0","count_e2_s0","count_e3_s0","count_e1_s1","count_e2_s1","count_e3_s1","mean_count","fitness1_uncorr","fitness2_uncorr","fitness3_uncorr","sigma1_uncorr","sigma2_uncorr","sigma3_uncorr","fitness","sigma","growthrate1","growthrate1_sigma","growthrate2","growthrate2_sigma","growthrate3","growthrate3_sigma","growthrate","growthrate_sigma","variant_group","block","background","mut1","wt_aa_1","pos_1","mut_aa_1","mut2","wt_aa_2","pos_2","mut_aa_2","variant_name","isSTOP","isWT")}
+  else if (ncol(df)==40){colnames(df)<-c("aa_seq","nt_seq","Nham_nt","Nham_aa","Nmut_codons","WT","indel","STOP","STOP_readthrough","count_e1_s0","count_e2_s0","count_e1_s1","count_e2_s1","mean_count","fitness1_uncorr","fitness2_uncorr","sigma1_uncorr","sigma2_uncorr","fitness","sigma","growthrate1","growthrate1_sigma","growthrate2","growthrate2_sigma","growthrate","growthrate_sigma","variant_group","block","background","mut1","wt_aa_1","pos_1","mut_aa_1","mut2","wt_aa_2","pos_2","mut_aa_2","variant_name","isSTOP","isWT")}
+    
+  return(df)
+}
+
+
+stops_and_wt_fitness<-function(df){
+  stop_dens<-density(df[STOP==TRUE,]$fitness)
+  stop_fitness<-stop_dens$x[which.max(stop_dens$y)]
+  wt_fitness<-df[WT==TRUE & variant_group=="aa_variants",]$fitness
+return(c(stop_fitness,wt_fitness))
+}
+
+scale_and_merge_datasets<-function(df1,df2,df3,df4,df5,title){
+  #scale data based on WT and STOPS
+  #scale all to block 1
+  #merge fitness estimates and errors of overlapping variants between blocks
+  
+  df1<-rename_fitness_sigma_cols(df1)
+  df2<-rename_fitness_sigma_cols(df2)
+  df3<-rename_fitness_sigma_cols(df3)
+  df4<-rename_fitness_sigma_cols(df4)
+  df5<-rename_fitness_sigma_cols(df5)
+  
+
+  stop_wt_df<-data.frame(d1<-stops_and_wt_fitness(df1),
+                         d2<-stops_and_wt_fitness(df2),
+                         d3<-stops_and_wt_fitness(df3),
+                         d4<-stops_and_wt_fitness(df4),
+                         d5<-stops_and_wt_fitness(df5))
+
+  
+  d2d1_fit<-lm(d1~d2,data=stop_wt_df)
+  d3d1_fit<-lm(d1~d3,data=stop_wt_df)
+  d4d1_fit<-lm(d1~d4,data=stop_wt_df)
+  d5d1_fit<-lm(d1~d5,data=stop_wt_df)
+  
+  #merged fitness
+  df1[,fitness_scaled:=fitness]
+  df1[,sigma_scaled:=sigma]
+  df2[,fitness_scaled:=fitness*coefficients(d2d1_fit)[2]+coefficients(d2d1_fit)[1]]
+  df2[,sigma_scaled:=sigma*coefficients(d2d1_fit)[2]]
+  df3[,fitness_scaled:=fitness*coefficients(d3d1_fit)[2]+coefficients(d3d1_fit)[1]]
+  df3[,sigma_scaled:=sigma*coefficients(d3d1_fit)[2]]
+  df4[,fitness_scaled:=fitness*coefficients(d4d1_fit)[2]+coefficients(d4d1_fit)[1]]
+  df4[,sigma_scaled:=sigma*coefficients(d4d1_fit)[2]]
+  df5[,fitness_scaled:=fitness*coefficients(d5d1_fit)[2]+coefficients(d5d1_fit)[1]]
+  df5[,sigma_scaled:=sigma*coefficients(d5d1_fit)[2]]
+  
+  df_scaled<-rbind(df1,df2,df3,df4,df5,fill=TRUE)
+  df_scaled<-df_scaled[!is.na(block),]
+  
+  df_scaled[STOP==TRUE,variant_type:="STOP"]
+  df_scaled[variant_group=="nt_synonymous_variants",variant_type:="synonymous"]
+  df_scaled[variant_group=="aa_variants" & STOP==FALSE & background=="WT",variant_type:="singles"]
+  df_scaled[variant_group=="aa_variants" & STOP==FALSE & background!="WT",variant_type:="doubles"]
+  synonyms<-mean(df_scaled[variant_type=="synonymous",]$fitness_scaled)
+  
+  stops<-stops_and_wt_fitness(df_scaled)[1]
+  synonyms<-stops_and_wt_fitness(df_scaled)[2]
+  
+  df_scaled$block<-as.factor(as.character(df_scaled$block))
+
+  
+  df_scaled<-df_scaled[variant_group=="aa_variants",]
+
+  
+  colnames(df_scaled)[c(10:32,47:48)]<-paste(title,colnames(df_scaled)[c(10:32,47:48)],sep="_")
+
+  return(df_scaled)
+}
+
+
+flkin_5blocks_scaled<-scale_and_merge_datasets(flkin_b1,flkin_b2,flkin_b3,flkin_b4,flkin_b5,"FL_kinase")
+flsand_5blocks_scaled<-scale_and_merge_datasets(flsand_b1,flsand_b2,flsand_b3,flsand_b4,flsand_b5,"FL_sandwich")
+kdkin_5blocks_scaled<-scale_and_merge_datasets(kdkin_b1,kdkin_b2,kdkin_b3,kdkin_b4,kdkin_b5,"KD_kinase")
+kdab_5blocks_scaled<-scale_and_merge_datasets(kdab_b1,kdab_b2,kdab_b3,kdab_b4,kdab_b5,"KD_abundance")
+
+
+
+#merge data from 5 blocks and 4 assays together
+
+merged_all<-Reduce(function(x,y) merge(x = x, y = y, by = c("aa_seq","nt_seq","Nham_nt","Nham_aa","Nmut_codons","WT","indel","STOP","STOP_readthrough","isWT","isSTOP","variant_name","block","background","mut1","wt_aa_1","pos_1","mut_aa_1","mut2","wt_aa_2","pos_2","mut_aa_2","variant_type","variant_group"),all=TRUE), 
+       list(flkin_5blocks_scaled,flsand_5blocks_scaled,kdkin_5blocks_scaled,kdab_5blocks_scaled))
+
+#write table
+write.table(merged_all,file="output_files/Figure1_fitness_scores_all_assays_scaled_WT_stops.txt",quote=FALSE,row.names = FALSE,sep="\t")
+
+
+```
+
+
+##MoCHI fits and model performance evaluation
+
+
+```{r mochi evaluation}
+
+
+plot_obs_vs_predicted<-function(df,filename,plot=TRUE){
+  
+df$predicted<-as.numeric(unlist(apply(df,MARGIN = 1,function(row){
+  fold<-as.numeric(row[57])
+  tenfolds<-row[44:53]
+  return(tenfolds[fold])
+})))
+
+df[Abundance_b1==1,pheno:="abundance block 1"]
+df[Abundance_b2==1,pheno:="abundance block 2"]
+df[Abundance_b3==1,pheno:="abundance block 3"]
+df[Abundance_b4==1,pheno:="abundance block 4"]
+df[Abundance_b5==1,pheno:="abundance block 5"]
+
+df[Activity_b1==1,pheno:="activity block 1"]
+df[Activity_b2==1,pheno:="activity block 2"]
+df[Activity_b3==1,pheno:="activity block 3"]
+df[Activity_b4==1,pheno:="activity block 4"]
+df[Activity_b5==1,pheno:="activity block 5"]
+
+df$pheno<-factor(df$pheno,
+                 levels=c("activity block 1","activity block 2","activity block 3","activity block 4","activity block 5",
+                          "abundance block 1","abundance block 2","abundance block 3","abundance block 4","abundance block 5"))
+
+#calculate explainable variance, obs-predicted correlations and obs-predicted R-squared
+df[, percentile85 := quantile(sigma, p=0.85), by = pheno]
+
+df_remove15<-df[sigma<percentile85,]
+
+df_remove15[,fev:=1-sum(sigma**2)/(var(fitness)*length(fitness)),by=pheno]
+df_remove15[,cor:=cor(predicted,fitness,use = "pairwise.complete.obs"),by=pheno]
+
+performance_summary<-df_remove15[!duplicated(pheno),c("pheno","fev","cor")]
+performance_summary[,Rsq:=cor**2]
+performance_summary[,fev_explained:=Rsq/fev]
+
+if (plot){
+ggplot(df_remove15,aes(x=predicted,y=fitness))+
+  geom_point(alpha=0.01)+
+  facet_wrap(~pheno,ncol=5,scales="free")+
+  scale_fill_viridis()+
+  stat_cor(size=5,col="darkgrey")+
+  geom_smooth(method="lm",size=0.5)+
+  theme_classic()+theme(text = element_text(size=18))
+ggsave(paste("output_files",filename,sep="/"),width=14,height=5)
+}
+
+return(performance_summary)
+
+}
+
+
+#3-state model
+#FL
+FL_predicted_phenotypes_3st<-fread("./analysis_files/MoCHI_observed_vs_predicted/3state_FL_predicted_phenotypes_all.txt")
+FL_3state_performance_summary<-plot_obs_vs_predicted(FL_predicted_phenotypes_3st,"FigureS1b_mochi_3state_FL_obs_vs_predicted.pdf")
+#KD
+KD_predicted_phenotypes_3st<-fread("./analysis_files/MoCHI_observed_vs_predicted/3state_KD_predicted_phenotypes_all.txt")
+KD_3state_performance_summary<-plot_obs_vs_predicted(KD_predicted_phenotypes_3st,"FigureS1b_mochi_3state_KD_obs_vs_predicted.pdf")
+
+
+#2-state model
+#FL
+FL_predicted_phenotypes_2st<-fread("./analysis_files/MoCHI_observed_vs_predicted/2state_FL_predicted_phenotypes_all.txt")
+FL_2state_performance_summary<-plot_obs_vs_predicted(FL_predicted_phenotypes_2st,"na",plot=FALSE)
+#KD
+KD_predicted_phenotypes_2st<-fread("./analysis_files/MoCHI_observed_vs_predicted/2state_KD_predicted_phenotypes_all.txt")
+KD_2state_performance_summary<-plot_obs_vs_predicted(KD_predicted_phenotypes_2st,"na",plot=FALSE)
+
+#4-state model
+#FL
+FL_predicted_phenotypes_4st<-fread("./analysis_files/MoCHI_observed_vs_predicted/4state_FL_predicted_phenotypes_all.txt")
+colnames(FL_predicted_phenotypes_4st)[39:43]<-c("Activity_b1","Activity_b2","Activity_b3","Activity_b4","Activity_b5")
+FL_4state_performance_summary<-plot_obs_vs_predicted(FL_predicted_phenotypes_4st,"na",plot=FALSE)
+#KD
+KD_predicted_phenotypes_4st<-fread("./analysis_files/MoCHI_observed_vs_predicted/4state_KD_predicted_phenotypes_all.txt")
+colnames(KD_predicted_phenotypes_4st)[39:43]<-c("Activity_b1","Activity_b2","Activity_b3","Activity_b4","Activity_b5")
+KD_4state_performance_summary<-plot_obs_vs_predicted(KD_predicted_phenotypes_4st,"na",plot=FALSE)
+
+
+#compare all models based on the % explainable variance explained
+
+KD_2state_performance_summary$model<-rep("2 state",nrow(KD_2state_performance_summary))
+KD_3state_performance_summary$model<-rep("3 state",nrow(KD_3state_performance_summary))
+KD_4state_performance_summary$model<-rep("4 state",nrow(KD_4state_performance_summary))
+
+KD_model_performance<-rbind(KD_2state_performance_summary,
+      KD_3state_performance_summary,
+      KD_4state_performance_summary)
+
+KD_model_performance$phenotype<-rep(c(rep("abundance",5),rep("activity",5)),3)
+KD_model_performance$block<-rep(c(1:5),6)
+
+ggplot(KD_model_performance)+
+  geom_col(aes(y=fev_explained*100,x=block,fill=phenotype),position="dodge")+
+  facet_wrap(~model)+
+  ylab("percent variance explained")+
+  theme_classic()
+ggsave("output_files/FigureS1c_mochi_FEV_explained_KD.pdf")
+
+
+FL_2state_performance_summary$model<-rep("2 state",nrow(FL_2state_performance_summary))
+FL_3state_performance_summary$model<-rep("3 state",nrow(FL_3state_performance_summary))
+FL_4state_performance_summary$model<-rep("4 state",nrow(FL_4state_performance_summary))
+
+FL_model_performance<-rbind(FL_2state_performance_summary,
+      FL_3state_performance_summary,
+      FL_4state_performance_summary)
+
+FL_model_performance$phenotype<-rep(c(rep("abundance",5),rep("activity",5)),3)
+FL_model_performance$block<-rep(c(1:5),6)
+
+ggplot(FL_model_performance)+
+  geom_col(aes(y=fev_explained*100,x=block,fill=phenotype),position="dodge")+
+  facet_wrap(~model)+
+  ylab("percent variance explained")+
+  theme_classic()
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

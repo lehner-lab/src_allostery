@@ -1,0 +1,315 @@
+---
+title: "Figure1.Rmd"
+author: "Toni Beltran"
+date: "19/11/2023"
+output: html_document
+---
+
+
+#Fitness distributions
+
+```{r fitness distributions}
+
+library(ggplot2)
+library(data.table)
+library(ggpubr)
+
+
+base_dir="/Users/tbeltran/Desktop/cluster_work/54_final_github_and_zenodo_submissions/"
+
+setwd(base_dir)
+
+fitness_scores<-fread("./output_files/Figure1_fitness_scores_all_assays_scaled_WT_stops.txt")
+
+
+#KD 
+ggplot(fitness_scores[variant_type %in% c("singles","doubles"),])+
+    geom_density(aes(x=-KD_kinase_fitness_scaled,col=variant_type,fill=variant_type),alpha=0.25)+
+    geom_vline(xintercept=-mean(fitness_scores[WT==TRUE,]$KD_kinase_fitness_scaled))+
+    geom_vline(xintercept=-mean(fitness_scores[STOP==TRUE,]$KD_kinase_fitness_scaled,na.rm = TRUE),linetype="dashed")+
+    coord_cartesian(xlim = c(-0.6,0.75))+
+    xlab("toxicity")+
+    theme_classic()
+ggsave("output_files/Figure1b_KD_activity_fitness_distribution.pdf")
+  
+ggplot(fitness_scores[variant_type %in% c("singles","doubles"),])+
+    geom_density(aes(x=KD_abundance_fitness_scaled,col=variant_type,fill=variant_type),alpha=0.25)+
+    geom_vline(xintercept=mean(fitness_scores[WT==TRUE,]$KD_abundance_fitness_scaled))+
+    geom_vline(xintercept=mean(fitness_scores[STOP==TRUE,]$KD_abundance_fitness_scaled,na.rm = TRUE),linetype="dashed")+
+    coord_cartesian(xlim = c(-1.5,0.5))+
+    theme_classic()
+ggsave("output_files/Figure1e_KD_abundance_fitness_distribution.pdf")
+
+
+
+```
+
+#Correlations to in vivo pY and abundance
+
+```{r correlations to in vivo data}
+
+
+ahler_ptyrdata<-data.table(
+  Variant=c("WT","K298M","N471Y","P491G","G398T","V274A","E381T"),
+  src=c(4533.698,3494.113,4683.234,3166.82,4505.577,2941.163,2405.163),
+  ptyr=c(8312.212,681.82,4881.359,12189.756,16686.839,25693.86,73158.106))
+
+
+ahler_ptyrdata_fitness<-merge(ahler_ptyrdata,fitness_scores[background=="WT",],by.x="Variant",by.y="mut1",all.x=TRUE)
+
+ahler_ptyrdata_fitness[Variant=="WT",KD_abundance_fitness:=0]
+ahler_ptyrdata_fitness[Variant=="WT",FL_sandwich_fitness:=0]
+ahler_ptyrdata_fitness[Variant=="WT",KD_kinase_fitness:=0]
+ahler_ptyrdata_fitness[Variant=="WT",FL_kinase_fitness:=0]
+
+#merge estimates for variants that occur in 2 blocks
+table(ahler_ptyrdata_fitness$Variant)
+
+#KD abundance
+e381t_fitness<-sum(ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$KD_abundance_fitness_scaled / ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$KD_abundance_sigma**2)/sum(1/ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$KD_abundance_sigma**2)
+e381t_sigma<-sqrt(1/sum(1/ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$KD_abundance_sigma**2))
+
+p491g_fitness<-sum(ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$KD_abundance_fitness_scaled / ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$KD_abundance_sigma**2)/sum(1/ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$KD_abundance_sigma**2)
+p491g_sigma<-sqrt(1/sum(1/ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$KD_abundance_sigma**2))
+
+ahler_ptyrdata_fitness[Variant=="E381T","KD_abundance_fitness"]<-e381t_fitness
+ahler_ptyrdata_fitness[Variant=="E381T","KD_abundance_sigma"]<-e381t_sigma
+
+ahler_ptyrdata_fitness[Variant=="P491G","KD_abundance_fitness"]<-p491g_fitness
+ahler_ptyrdata_fitness[Variant=="P491G","KD_abundance_sigma"]<-p491g_sigma
+
+#FL sandwich
+e381t_fitness<-sum(ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$FL_sandwich_fitness / ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$FL_sandwich_sigma**2)/sum(1/ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$FL_sandwich_sigma**2)
+e381t_sigma<-sqrt(1/sum(1/ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$FL_sandwich_sigma**2))
+
+p491g_fitness<-sum(ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$FL_sandwich_fitness / ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$FL_sandwich_sigma**2)/sum(1/ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$FL_sandwich_sigma**2)
+p491g_sigma<-sqrt(1/sum(1/ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$FL_sandwich_sigma**2))
+
+ahler_ptyrdata_fitness[Variant=="E381T","FL_sandwich_fitness"]<-e381t_fitness
+ahler_ptyrdata_fitness[Variant=="E381T","FL_sandwich_sigma"]<-e381t_sigma
+
+ahler_ptyrdata_fitness[Variant=="P491G","FL_sandwich_fitness"]<-p491g_fitness
+ahler_ptyrdata_fitness[Variant=="P491G","FL_sandwich_sigma"]<-p491g_sigma
+
+#KD kinase
+e381t_fitness<-sum(ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$KD_kinase_fitness / ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$KD_kinase_sigma**2)/sum(1/ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$KD_kinase_sigma**2)
+e381t_sigma<-sqrt(1/sum(1/ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$KD_kinase_sigma**2))
+
+p491g_fitness<-sum(ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$KD_kinase_fitness / ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$KD_kinase_sigma**2)/sum(1/ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$KD_kinase_sigma**2)
+p491g_sigma<-sqrt(1/sum(1/ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$KD_kinase_sigma**2))
+
+ahler_ptyrdata_fitness[Variant=="E381T","KD_kinase_fitness"]<-e381t_fitness
+ahler_ptyrdata_fitness[Variant=="E381T","KD_kinase_sigma"]<-e381t_sigma
+
+ahler_ptyrdata_fitness[Variant=="P491G","KD_kinase_fitness"]<-p491g_fitness
+ahler_ptyrdata_fitness[Variant=="P491G","KD_kinase_sigma"]<-p491g_sigma
+
+#FL kinase
+e381t_fitness<-sum(ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$FL_kinase_fitness / ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$FL_kinase_sigma**2)/sum(1/ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$FL_kinase_sigma**2)
+e381t_sigma<-sqrt(1/sum(1/ahler_ptyrdata_fitness[Variant=="E381T" & is.na(WT),]$FL_kinase_sigma**2))
+
+p491g_fitness<-sum(ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$FL_kinase_fitness / ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$FL_kinase_sigma**2)/sum(1/ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$FL_kinase_sigma**2)
+p491g_sigma<-sqrt(1/sum(1/ahler_ptyrdata_fitness[Variant=="P491G" & is.na(WT),]$FL_kinase_sigma**2))
+
+ahler_ptyrdata_fitness[Variant=="E381T","FL_kinase_fitness"]<-e381t_fitness
+ahler_ptyrdata_fitness[Variant=="E381T","FL_kinase_sigma"]<-e381t_sigma
+
+ahler_ptyrdata_fitness[Variant=="P491G","FL_kinase_fitness"]<-p491g_fitness
+ahler_ptyrdata_fitness[Variant=="P491G","FL_kinase_sigma"]<-p491g_sigma
+
+#add N471Y manually (it got filtered out for being at a hamming distance of 1 from the WT)
+ 
+ahler_ptyrdata_fitness<-ahler_ptyrdata_fitness[,c("Variant","KD_abundance_fitness","KD_abundance_sigma","KD_kinase_fitness","KD_kinase_sigma","FL_sandwich_fitness","FL_sandwich_sigma","FL_kinase_fitness","FL_kinase_sigma","src","ptyr")]
+ 
+ahler_ptyrdata_fitness[Variant=="WT",KD_abundance_fitness:=0]
+ahler_ptyrdata_fitness[Variant=="WT",FL_sandwich_fitness:=0]
+ahler_ptyrdata_fitness[Variant=="WT",KD_kinase_fitness:=0]
+ahler_ptyrdata_fitness[Variant=="WT",FL_kinase_fitness:=0]
+ 
+ 
+ahler_ptyrdata_fitness[Variant=="N471Y",FL_kinase_fitness:=0.1523526]
+ahler_ptyrdata_fitness[Variant=="N471Y",FL_kinase_sigma:=0.01527251]
+ahler_ptyrdata_fitness[Variant=="N471Y",FL_sandwich_fitness:=0.113886]
+ahler_ptyrdata_fitness[Variant=="N471Y",FL_sandwich_sigma:=0.01776035]
+ahler_ptyrdata_fitness[Variant=="N471Y",KD_kinase_fitness:=0.3792323]
+ahler_ptyrdata_fitness[Variant=="N471Y",KD_kinase_sigma:=0.01391002]
+ahler_ptyrdata_fitness[Variant=="N471Y",KD_abundance_fitness:=0.0328398]
+ahler_ptyrdata_fitness[Variant=="N471Y",KD_abundance_sigma:=0.05155406]
+
+#plot correlations
+
+ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=src,y=KD_abundance_fitness))+
+  geom_point()+
+  geom_text(aes(label=Variant),nudge_y=0.05,nudge_x=0.05)+
+  geom_errorbar(aes(ymin=KD_abundance_fitness-KD_abundance_sigma, ymax=KD_abundance_fitness+KD_abundance_sigma), width=.2,
+                 position=position_dodge(.9))+
+  geom_smooth(method = "lm")+
+  stat_cor(label.y.npc = "top",label.x.npc = "middle")+
+  theme_classic()+
+  theme(text = element_text(size=15))
+
+ggsave("output_files/Figure1f_correlation_with_wb_KD_abundance.pdf")
+
+
+ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=src,y=FL_sandwich_fitness))+
+  geom_point()+
+  geom_text(aes(label=Variant),nudge_y=0.05,nudge_x=0.05)+
+  geom_errorbar(aes(ymin=FL_sandwich_fitness-FL_sandwich_sigma, ymax=FL_sandwich_fitness+FL_sandwich_sigma), width=.2,
+                 position=position_dodge(.9))+
+  geom_smooth(method = "lm")+
+  stat_cor(label.y.npc = "top",label.x.npc = "middle")+
+  theme_classic()+
+  theme(text = element_text(size=15))
+
+ggsave("output_files/FigureS7_correlation_with_wb_FL_sandwich.pdf")
+
+
+ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=log2(ptyr),y=-KD_kinase_fitness))+
+  geom_point()+
+  geom_text(aes(label=Variant),nudge_y=0.05,nudge_x=0.05)+
+  geom_errorbar(aes(ymin=-KD_kinase_fitness-KD_kinase_sigma, ymax=-KD_kinase_fitness+KD_kinase_sigma), width=.2,
+                 position=position_dodge(.9))+
+  geom_smooth(method = "lm")+
+  stat_cor(label.y.npc = "top",label.x.npc = "middle")+
+  theme_classic()+
+  theme(text = element_text(size=15))
+ggsave("output_files/Figure1c_correlation_with_wb_KD_kinase.pdf")
+
+
+ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=log2(ptyr),y=-FL_kinase_fitness))+
+  geom_point()+
+  geom_text(aes(label=Variant),nudge_y=0.05,nudge_x=0.05)+
+  geom_errorbar(aes(ymin=-FL_kinase_fitness-FL_kinase_sigma, ymax=-FL_kinase_fitness+FL_kinase_sigma), width=.2,
+                 position=position_dodge(.9))+
+  geom_smooth(method = "lm")+
+  stat_cor(label.y.npc = "top",label.x.npc = "middle")+
+  theme_classic()+
+  theme(text = element_text(size=15))
+ggsave("output_files/FigureS7_correlation_with_wb_FL_kinase.pdf")
+
+
+```
+
+```{r plot mochi weights}
+
+weights_flkin_sand_activity<-fread("./analysis_files/MoCHI_weights/3state_FL_weights_Activity.txt")
+weights_flkin_sand_abundance<-fread("./analysis_files/MoCHI_weights/3state_FL_weights_Folding.txt")
+
+weights_kdkin_ab_activity<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Activity.txt")
+weights_kdkin_ab_abundance<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Folding.txt")
+
+
+plot_weights_heatmap<-function(weights_dt,title){
+  
+  weights_dt[,wt_aa:=substr(id,1,1)]
+  weights_dt[,mut_aa:=substr(id,nchar(id),nchar(id))]
+
+  weights_dt$mut_aa<-factor(weights_dt$mut_aa,levels=c("S","T","N","Q","D","E","K","R","H","G","P","C","M","A","L","I","V","F","Y","W"))
+  
+  pos_df<-weights_dt[,c("Pos","wt_aa")]
+  pos_df<-pos_df[!duplicated(pos_df),]
+  pos_df<-pos_df[order(pos_df$Pos),]
+
+  minweight<-min(weights_dt$`mean_kcal/mol`)
+  maxweight<-max(weights_dt$`mean_kcal/mol`)
+
+  print(ggplot(weights_dt,aes(x=Pos,y=mut_aa))+
+     geom_tile(aes(fill=`mean_kcal/mol`))+
+     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
+                         values = rescale(c(minweight,0,maxweight)),
+                         guide = "colorbar", limits=c(minweight,maxweight))+
+     scale_x_discrete(limits=pos_df$Pos,
+                   labels=pos_df$wt_aa)+
+     theme_classic()+
+     ggtitle(title))
+  
+  
+}
+
+
+```
+
+# Full length kinase 
+
+```{r plot heatmaps fl, fig.width=15, fig.height=3}
+
+library(scales)
+
+plot_weights_heatmap(weights_flkin_sand_abundance,"sandwich")
+ggsave("output_files/FigureS7_FL_3statemodel_sandwich_weights.pdf")
+
+plot_weights_heatmap(weights_flkin_sand_activity,"activity")
+ggsave("output_files/FigureS7_FL_3statemodel_activity_weights.pdf")
+
+
+```
+
+
+# KD alone 
+
+```{r plot kd heatmaps, fig.width=15, fig.height=3}
+
+
+plot_weights_heatmap(weights_kdkin_ab_abundance,"abundance")
+ggsave("output_files/Figure1k_KD_3statemodel_abundance_weights.pdf")
+
+plot_weights_heatmap(weights_kdkin_ab_activity,"activity")
+ggsave("output_files/Figure1l_KD_3statemodel_activity_weights.pdf")
+
+
+```
+
+#Src annotations
+
+```{r src annotations for the heatmap}
+
+src_annos<-fread("analysis_files/20220620_c-SRC_annotations.txt")
+src_sasa<-fread("analysis_files/2SRC.pdb.rsa.naccess.form")
+
+src_annos$Core<-NULL
+src_annos$Surface<-NULL
+
+src_sasa[,V4:=V4+3]
+src_sasa[V5<=25,core:="core"]
+src_sasa[V5>25,core:="surface"]
+
+src_annos[position %in% src_sasa[core=="core",]$V4,core:="core"]
+src_annos[position %in% src_sasa[core=="surface",]$V4,core:="surface"]
+src_annos[is.na(core),core:="surface"]
+
+src_annos$position<-as.factor(src_annos$position)
+
+ggplot(src_annos)+
+  geom_tile(aes(x=position,y=`secondary_structure_KD_refs1,2`),col="black")+
+  geom_tile(aes(x=position,y=`R-spine`),fill="red",col="red")+
+  geom_tile(aes(x=position,y=`C-spine`),fill="orange",col="orange")+
+  geom_tile(aes(x=position,y=smallMolecule_ion_substrate_binding))+
+  geom_tile(aes(x=position,y=ActiveSite_ProSite))+
+  coord_cartesian(xlim=c(268,536))+
+  theme_classic()
+ggsave("output_files/Figure1m_src_linear_annotations.pdf")
+
+
+ggplot(src_annos)+
+  geom_tile(aes(x=position,y=KD_lobe,fill=KD_lobe))+
+  coord_cartesian(xlim=c(268,536))+
+  theme_classic()
+ggsave("output_files/Figure1m_src_linear_annotations_KDlobe.pdf")
+
+  
+ggplot(src_annos)+
+  geom_tile(aes(x=position,y=core,fill=core))+
+  coord_cartesian(xlim=c(268,536))+
+  theme_classic()
+ggsave("output_files/Figure1m_src_linear_annotations_core.pdf")
+
+  
+
+
+
+```
+
+
+
+
+
