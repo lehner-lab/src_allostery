@@ -14,7 +14,7 @@ library(gplots)
 library(viridis)
 library(ggpubr)
 
-base_dir="/Users/ab6415/Desktop/cluster_work/54_final_github_and_zenodo_submissions/"
+base_dir="/path/to/your/scripts"
 
 setwd(base_dir)
 
