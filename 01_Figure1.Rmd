@@ -14,8 +14,7 @@ library(ggplot2)
 library(data.table)
 library(ggpubr)
 
-
-base_dir="/Users/tbeltran/Desktop/cluster_work/54_final_github_and_zenodo_submissions/"
+base_dir="/path/to/your/scripts"
 
 setwd(base_dir)
 
