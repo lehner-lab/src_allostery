@@ -1,8 +1,7 @@
 ---
 title: "Figure 6"
-author: "Toni Beltran"
-date: "18/11/2023"
 output: html_document
+date: "2023-06-01"
 ---
 
 # Comparison of MoCHI weights - FL vs KD
@@ -16,16 +15,14 @@ library(scales)
 library(ggpubr)
 
 
-base_dir="/path/to/your/scripts"
+setwd("/Users/tbeltran/Desktop/cluster_work/52_final_SRC_paper/2_code/")
 
-setwd(base_dir)
 
-#load weights
-weights_flkin_sand_activity<-fread("./analysis_files/MoCHI_weights/3state_FL_weights_Activity.txt")
-weights_flkin_sand_abundance<-fread("./analysis_files/MoCHI_weights/3state_FL_weights_Folding.txt")
+weights_flkin_sand_activity<-fread("../1_mochi_files/3state_FLkin_FLsand/3state_FLkin_FLsand_o1/task_1/weights/weights_Activity.txt")
+weights_flkin_sand_abundance<-fread("../1_mochi_files/3state_FLkin_FLsand/3state_FLkin_FLsand_o1/task_1/weights/weights_Folding.txt")
 
-weights_kdkin_ab_activity<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Activity.txt")
-weights_kdkin_ab_abundance<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Folding.txt")
+weights_kdkin_ab_activity<-fread("../1_mochi_files/3state_KDkin_KDab/3state_KDkin_KDab_o1/task_1/weights/weights_Activity.txt")
+weights_kdkin_ab_abundance<-fread("../1_mochi_files/3state_KDkin_KDab/3state_KDkin_KDab_o1/task_1/weights/weights_Folding.txt")
 
 rename_cols<-function(weights_df,prefix){
   colnames(weights_df)[5:22]<-paste(prefix,colnames(weights_df)[5:22],sep="_")
@@ -49,11 +46,11 @@ ggplot()+
 ggsave("output_files/FigureS6h_activity_weight_distributions.pdf")
 
 #swapped data as a control
-weights_flkin_kdab_activity<-fread("./analysis_files/MoCHI_weights/3state_FLact_KDab_weights_Activity.txt")
-weights_flkin_kdab_abundance<-fread("./analysis_files/MoCHI_weights/3state_FLact_KDab_weights_Folding.txt")
+weights_flkin_kdab_activity<-fread("../1_mochi_files/3state_FLkin_FLsand/3state_FLkin_FLsand_o1/task_1/weights/weights_Activity.txt")
+weights_flkin_kdab_abundance<-fread("../1_mochi_files/3state_FLkin_FLsand/3state_FLkin_FLsand_o1/task_1/weights/weights_Folding.txt")
 
-weights_kdkin_flsand_activity<-fread("./analysis_files/MoCHI_weights/3state_KDact_FLab_weights_Activity.txt")
-weights_kdkin_flsand_abundance<-fread("./analysis_files/MoCHI_weights/3state_KDact_FLab_weights_Folding.txt")
+weights_kdkin_flsand_activity<-fread("../1_mochi_files/3state_KDkin_KDab/3state_KDkin_KDab_o1/task_1/weights/weights_Activity.txt")
+weights_kdkin_flsand_abundance<-fread("../1_mochi_files/3state_KDkin_KDab/3state_KDkin_KDab_o1/task_1/weights/weights_Folding.txt")
 
 weights_flkin_kdab_activity<-rename_cols(weights_flkin_kdab_activity,"FLkin_KDab_activity")
 weights_flkin_kdab_abundance<-rename_cols(weights_flkin_kdab_abundance,"FLkin_KDab_folding")
@@ -65,7 +62,7 @@ merged_all_swapped<-Reduce(function(x,y) merge(x = x, y = y, by = c("id","id_ref
        list(weights_flkin_kdab_activity,weights_flkin_kdab_abundance, weights_kdkin_flsand_activity,weights_kdkin_flsand_abundance))
 
 
-#plot correlations
+
 get_density <- function(x, y, ...) {
   dens <- MASS::kde2d(x, y, ...)
   ix <- findInterval(x, dens$x)
@@ -97,11 +94,13 @@ ggsave("output_files/Figure6d_abundance_FL_vs_KD_correlations.pdf")
 #calculate residuals and plot on structure
 fit<-lm(formula = `FL_activity_mean_kcal/mol`~`KD_activity_mean_kcal/mol`,data=merged_all)
 summary(fit)
+plot(fit)
 
 merged_all$residuals_activity_FL_KD<-fit$residuals
 
 fit<-lm(formula = `FL_folding_mean_kcal/mol`~`KD_folding_mean_kcal/mol`,data=merged_all)
 summary(fit)
+plot(fit)
 
 merged_all$residuals_folding_FL_KD<-fit$residuals
 merged_all[,Pos_ref:=Pos+267]
@@ -122,7 +121,7 @@ from_table_to_structure<-function(data,pdb_id,title){
   for(i in min(data$Pos_ref,na.rm=TRUE):max(data$Pos_ref,na.rm = TRUE)){
   structure$atom$b[structure$atom$resno==i &  structure$atom$chain=="A"]<-data[Pos_ref==(i+3),]$mean_activity_residuals
   }
-  write.pdb(structure,file=paste0("./output_files/annotated_structures_",pdb_id,"_",title,".pdb",collapse=""))
+  write.pdb(structure,file=paste0("./annotated_structures/",pdb_id,"_",title,".pdb",collapse=""))
 }
 
 from_table_to_structure(averaged_residuals_activity_bypos,"2src","residuals_activity_FL_KD")
@@ -136,7 +135,7 @@ from_table_to_structure_folding<-function(data,pdb_id,title){
   for(i in min(data$Pos_ref,na.rm=TRUE):max(data$Pos_ref,na.rm = TRUE)){
   structure$atom$b[structure$atom$resno==i &  structure$atom$chain=="A"]<-data[Pos_ref==(i+3),]$mean_folding_residuals
   }
-  write.pdb(structure,file=paste0("./output_files/annotated_structures_",pdb_id,"_",title,".pdb",collapse=""))
+  write.pdb(structure,file=paste0("./annotated_structures/",pdb_id,"_",title,".pdb",collapse=""))
 }
 
 from_table_to_structure_folding(averaged_residuals_folding_bypos,"2src","residuals_folding_FL_KD")
@@ -144,6 +143,7 @@ from_table_to_structure_folding(averaged_residuals_folding_bypos,"2src","residua
 
 
 #plot residuals heatmap
+
 plot_residuals_heatmap<-function(weights_dt,title){
   
   weights_dt[,wt_aa:=substr(id,1,1)]
@@ -167,8 +167,8 @@ plot_residuals_heatmap<-function(weights_dt,title){
                    labels=pos_df$wt_aa)+
      ggtitle(title))
   
-  minweight<-min(weights_dt$residuals_activity_FL_KD)
-  maxweight<-max(weights_dt$residuals_activity_FL_KD)
+  minweight<-(-1)*max(abs((weights_dt$residuals_activity_FL_KD)))
+  maxweight<-max(abs((weights_dt$residuals_activity_FL_KD)))
 
   print(ggplot(weights_dt,aes(x=Pos,y=mut_aa))+
      geom_tile(aes(fill=residuals_activity_FL_KD))+
@@ -193,7 +193,6 @@ plot_residuals_heatmap(merged_all,title="residuals")
 
 ```{r plot residuals heatmap subsets}
 
-#plots residual heatmaps at KD-regulatory domain interfaces
 plot_residuals_heatmap_subsets<-function(weights_dt,title,subset){
   
   weights_dt<-weights_dt[Pos_ref %in% subset,]
@@ -217,49 +216,17 @@ plot_residuals_heatmap_subsets<-function(weights_dt,title,subset){
   
 }
 
-
-#definitions of interfaces
 aF_pocket<-c(506,508,443,444,511,512,378,381)
+SH2_KD<-c(520,521,522,372,375,368)
+SH3_linker_KD<-c(330,289,290,404,321,327)
 Cttail<-c(527,528,529,530,531,532,533,534,535,536)
-
-#SH2-KD and SH3/linker-KD from getcontacts
-contacts<-fread("./analysis_files/2SRC.getcontacts.form.tsv")
-
-contacts$pos1<-as.numeric(unlist(lapply(contacts$V3,FUN=function(string){
-  return(strsplit(strsplit(string,"_")[[1]][1],":")[[1]][3])
-})))
-
-contacts$pos2<-as.numeric(unlist(lapply(contacts$V4,FUN=function(string){
-  return(strsplit(strsplit(string,"_")[[1]][1],":")[[1]][3])
-})))
-
-contacts[pos1<264 & pos2>264,intra_inter:="KD_KD"]
-contacts[pos1>264 & pos2<264,intra_inter:="KD_reg"]
-contacts[pos1<264 & pos2>264,intra_inter:="KD_reg"]
-contacts[pos1<264 & pos2<264,intra_inter:="reg_reg"]
-
-contact_types<-c("sb","pc","hbss","hbsb","hp","vdw")
-
-SH2_KD<-unique(c(contacts[pos1<248 & pos1>149 & intra_inter=="KD_reg" & V2 %in% contact_types]$pos2,
-         contacts[pos2<248 & pos2>149 & intra_inter=="KD_reg"]$pos1))+3
-SH2_KD<-SH2_KD[which(SH2_KD<527)]
-
-SH3_KD<-c(unique(c(contacts[(pos1<140 ) & intra_inter=="KD_reg" & V2 %in% contact_types]$pos2,
-         contacts[(pos2<140 ) & intra_inter=="KD_reg"]$pos1))+3)
-
-linker_KD<-c(unique(c(contacts[((pos1>247 & pos1<260)) & intra_inter=="KD_reg" & V2 %in% contact_types]$pos2,
-         contacts[( (pos2>247 & pos2<260)) & intra_inter=="KD_reg"]$pos1))+3,330,404)
 
 plot_residuals_heatmap_subsets(merged_all,"aF_pocket",aF_pocket)
 ggsave("output_files/Figure6f_aF_pocket_residuals.pdf")
 plot_residuals_heatmap_subsets(merged_all,"SH2-KD",SH2_KD)
 ggsave("output_files/Figure6f_SH2_KD_interface_residuals.pdf")
-plot_residuals_heatmap_subsets(merged_all,"SH3-KD",SH3_KD)
-ggsave("output_files/Figure6f_SH3_KD_interface_residuals.pdf")
-plot_residuals_heatmap_subsets(merged_all,"linker-KD",linker_KD)
-ggsave("output_files/Figure6f_linker_KD_interface_residuals.pdf")
-plot_residuals_heatmap_subsets(merged_all,"SH3-linker-KD",c(SH3_KD,linker_KD))
-ggsave("output_files/Figure6f_SH3-linker_KD_interface_residuals.pdf")
+plot_residuals_heatmap_subsets(merged_all,"SH3-linker-KD",SH3_linker_KD)
+ggsave("output_files/Figure6f_SH3_linker_KD_interface_residuals.pdf")
 plot_residuals_heatmap_subsets(merged_all,"Ct_tail",Cttail)
 ggsave("output_files/Figure6f_Ct_tail_interface_residuals.pdf")
 
@@ -267,14 +234,13 @@ ggsave("output_files/Figure6f_Ct_tail_interface_residuals.pdf")
 #violin plots regulatory interfaces
 
 merged_all[,regulatory_interfaces:="none"]
-merged_all[Pos_ref %in% SH2_KD,regulatory_interfaces:="SH2_KD"]
-merged_all[Pos_ref %in% aF_pocket,regulatory_interfaces:="aF_pocket"]
-merged_all[Pos_ref %in% SH3_KD,regulatory_interfaces:="SH3_KD"]
-merged_all[Pos_ref %in% linker_KD,regulatory_interfaces:="linker_KD"]
-merged_all[Pos_ref %in% Cttail,regulatory_interfaces:="Ct_tail"]
+merged_all[Pos_ref %in% c(520,521,522,372,375,368),regulatory_interfaces:="SH2_KD"]
+merged_all[Pos_ref %in% c(506,508,443,444,511,512,378,381),regulatory_interfaces:="aF_pocket"]
+merged_all[Pos_ref %in% c(330,289,290,404,321,327),regulatory_interfaces:="SH3_linker_KD"]
+merged_all[Pos_ref %in% c(527,528,529,530,531,532,533,534,535,536),regulatory_interfaces:="Ct_tail"]
 
 merged_all$regulatory_interfaces<-factor(merged_all$regulatory_interfaces,
-                                         levels=c("SH2_KD","SH3_KD","linker_KD","aF_pocket","Ct_tail","none"))
+                                         levels=c("SH2_KD","SH3_linker_KD","aF_pocket","Ct_tail","none"))
 
 ggplot(merged_all,aes(y=residuals_activity_FL_KD,x=regulatory_interfaces,col=residuals_activity_FL_KD))+
   geom_jitter()+
@@ -309,14 +275,13 @@ merged_all_swapped$residuals_folding_FL_KD<-fit$residuals
 merged_all_swapped[,Pos_ref:=Pos+267]
 
 merged_all_swapped[,regulatory_interfaces:="none"]
-merged_all_swapped[Pos_ref %in% SH2_KD,regulatory_interfaces:="SH2_KD"]
-merged_all_swapped[Pos_ref %in% aF_pocket,regulatory_interfaces:="aF_pocket"]
-merged_all_swapped[Pos_ref %in% linker_KD,regulatory_interfaces:="linker_KD"]
-merged_all_swapped[Pos_ref %in% SH3_KD,regulatory_interfaces:="SH3_KD"]
-merged_all_swapped[Pos_ref %in% Cttail,regulatory_interfaces:="Ct_tail"]
+merged_all_swapped[Pos_ref %in% c(520,521,522,372,375,368),regulatory_interfaces:="SH2_KD"]
+merged_all_swapped[Pos_ref %in% c(506,508,443,444,511,512,378,381),regulatory_interfaces:="aF_pocket"]
+merged_all_swapped[Pos_ref %in% c(330,289,290,404,321,327),regulatory_interfaces:="SH3_linker_KD"]
+merged_all_swapped[Pos_ref %in% c(529,530,531,532,533,534,535,536),regulatory_interfaces:="Ct_tail"]
 
 merged_all_swapped$regulatory_interfaces<-factor(merged_all_swapped$regulatory_interfaces,
-                                         levels=c("SH2_KD","SH3_KD","linker_KD","aF_pocket","Ct_tail","none"))
+                                         levels=c("SH2_KD","SH3_linker_KD","aF_pocket","Ct_tail","none"))
 
 ggplot(merged_all_swapped,aes(y=residuals_activity_FL_KD,x=regulatory_interfaces,col=residuals_activity_FL_KD))+
   geom_jitter()+
@@ -337,13 +302,9 @@ ggsave("output_files/FigureS6i_regulatory_interfaces_residuals_swapped.pdf")
 
 ```
 
-
-
-
 ```{r statistical analysis}
 
-merged_all[,z_activity:=residuals_activity_FL_KD/((KD_activity_std+FL_activity_std)/2)]
-
+merged_all[,z_activity:=residuals_activity_FL_KD/sqrt((FL_activity_std**2)/3+(KD_activity_std**2)/3)]
 merged_all[,p_activity:=2*(1-pnorm(abs(z_activity)))]
 merged_all[,fdr_activity:=p.adjust(p_activity,method = "fdr")]
 
@@ -369,23 +330,26 @@ heatmap.2(as.matrix(distmap),trace="none",dendrogram ="none",Rowv=FALSE,Colv=FAL
 rownames(distmap)<-as.character(seq(87,536))
 colnames(distmap)<-as.character(seq(87,536))
 
-more_inhibiting_sites<-names(which(table(more_inhibiting_fdr0.1$Pos_ref)>1))
+more_inhibiting_sites<-names(which(table(more_inhibiting_fdr0.1$Pos_ref)>2))
 distmap_subset<-as.matrix(distmap[which(rownames(distmap) %in% more_inhibiting_sites),..more_inhibiting_sites])
 rownames(distmap_subset)<-more_inhibiting_sites
 hc<-hclust(as.dist(distmap_subset))
 plot(hc)
 
+
 #1-Ct tail
 more_inhibiting_fdr0.1[Pos_ref %in% c(529,532,533,535),]
 table(more_inhibiting_fdr0.1[Pos_ref %in% c(529,532,533,535),]$Pos_ref)
 
+
 #cluster more activating
-more_activating_sites<-names(which(table(more_activating_fdr0.1$Pos_ref)>1))
+
+names(which(table(more_activating_fdr0.1$Pos_ref)>2))
+
+more_activating_sites<-names(which(table(more_activating_fdr0.1$Pos_ref)>2))
 distmap_subset<-as.matrix(distmap[which(rownames(distmap) %in% more_activating_sites),..more_activating_sites])
 rownames(distmap_subset)<-more_activating_sites
 hc<-hclust(as.dist(distmap_subset))
-plot(hc)
-
 pdf("output_files/FigureS6j_negative_deltadeltadelta_clusters.pdf")
 plot(hc)
 dev.off()
