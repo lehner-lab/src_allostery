@@ -1,24 +1,23 @@
 ---
 title: "Figure1.Rmd"
 author: "Toni Beltran"
-date: "19/11/2023"
+date: "17/10/2023"
 output: html_document
 ---
 
 
 #Fitness distributions
 
-```{r fitness distributions}
+```{r fitness correlations}
 
 library(ggplot2)
 library(data.table)
 library(ggpubr)
 
-base_dir="/path/to/your/scripts"
 
-setwd(base_dir)
+setwd("/Users/tbeltran/Desktop/cluster_work/52_final_SRC_paper/2_code/")
 
-fitness_scores<-fread("./output_files/Figure1_fitness_scores_all_assays_scaled_WT_stops.txt")
+fitness_scores<-fread("output_files/Figure1_fitness_scores_all_assays_scaled_WT_stops.txt")
 
 
 #KD 
@@ -160,7 +159,7 @@ ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=src,y=FL_sandwich_fit
   theme_classic()+
   theme(text = element_text(size=15))
 
-ggsave("output_files/FigureS7_correlation_with_wb_FL_sandwich.pdf")
+ggsave("output_files/FigureS6_correlation_with_wb_FL_sandwich.pdf")
 
 
 ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=log2(ptyr),y=-KD_kinase_fitness))+
@@ -184,18 +183,18 @@ ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=log2(ptyr),y=-FL_kina
   stat_cor(label.y.npc = "top",label.x.npc = "middle")+
   theme_classic()+
   theme(text = element_text(size=15))
-ggsave("output_files/FigureS7_correlation_with_wb_FL_kinase.pdf")
+ggsave("output_files/FigureS6_correlation_with_wb_FL_kinase.pdf")
 
 
 ```
 
 ```{r plot mochi weights}
 
-weights_flkin_sand_activity<-fread("./analysis_files/MoCHI_weights/3state_FL_weights_Activity.txt")
-weights_flkin_sand_abundance<-fread("./analysis_files/MoCHI_weights/3state_FL_weights_Folding.txt")
+weights_flkin_sand_activity<-fread("../1_mochi_files/3state_FLkin_FLsand/3state_FLkin_FLsand_o1/task_1/weights/weights_Activity.txt")
+weights_flkin_sand_abundance<-fread("../1_mochi_files/3state_FLkin_FLsand/3state_FLkin_FLsand_o1/task_1/weights/weights_Folding.txt")
 
-weights_kdkin_ab_activity<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Activity.txt")
-weights_kdkin_ab_abundance<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Folding.txt")
+weights_kdkin_ab_activity<-fread("../1_mochi_files/3state_KDkin_KDab/3state_KDkin_KDab_o1/task_1/weights/weights_Activity.txt")
+weights_kdkin_ab_abundance<-fread("../1_mochi_files/3state_KDkin_KDab/3state_KDkin_KDab_o1/task_1/weights/weights_Folding.txt")
 
 
 plot_weights_heatmap<-function(weights_dt,title){
@@ -209,8 +208,8 @@ plot_weights_heatmap<-function(weights_dt,title){
   pos_df<-pos_df[!duplicated(pos_df),]
   pos_df<-pos_df[order(pos_df$Pos),]
 
-  minweight<-min(weights_dt$`mean_kcal/mol`)
-  maxweight<-max(weights_dt$`mean_kcal/mol`)
+  minweight<-(-1)*max(abs(weights_dt$`mean_kcal/mol`))
+  maxweight<-max(abs(weights_dt$`mean_kcal/mol`))
 
   print(ggplot(weights_dt,aes(x=Pos,y=mut_aa))+
      geom_tile(aes(fill=`mean_kcal/mol`))+
@@ -235,10 +234,10 @@ plot_weights_heatmap<-function(weights_dt,title){
 library(scales)
 
 plot_weights_heatmap(weights_flkin_sand_abundance,"sandwich")
-ggsave("output_files/FigureS7_FL_3statemodel_sandwich_weights.pdf")
+ggsave("output_files/FigureS6_FL_3statemodel_sandwich_weights.pdf")
 
 plot_weights_heatmap(weights_flkin_sand_activity,"activity")
-ggsave("output_files/FigureS7_FL_3statemodel_activity_weights.pdf")
+ggsave("output_files/FigureS6_FL_3statemodel_activity_weights.pdf")
 
 
 ```
@@ -257,6 +256,7 @@ ggsave("output_files/Figure1l_KD_3statemodel_activity_weights.pdf")
 
 
 ```
+
 
 #Src annotations
 
