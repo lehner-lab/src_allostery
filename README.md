@@ -34,17 +34,17 @@ The R Markdown files contain the code to reproduce the figures and results from 
 
 R Markdown files are meant to be run in the following order:
 
-* **1. 00_fitness_reproducibility_and_mochi_evaluation.Rmd**
-* **2. 00_mochi_ddGs_onto_structure.Rmd**
-* **3. 01_Figure1.Rmd**
-* **4. 02_Figure2.Rmd**
-* **5. 03_Figure3.Rmd**
-* **6. 04_Figure4.Rmd**
-* **7. 05_Figure5.Rmd**
-* **8. 06_Figure6.Rmd** 
-* **07_FigureS9_allopredictors.Rmd**
-* **08_Figure2_mRNAD_validation.Rmd**
-* **09_Figure5_pocket_overlap_stringency.Rmd**
+* **1.  00_fitness_reproducibility_and_mochi_evaluation.Rmd**
+* **2.  00_mochi_ddGs_onto_structure.Rmd**
+* **3.  01_Figure1.Rmd**
+* **4.  02_Figure2.Rmd**
+* **5.  03_Figure3.Rmd**
+* **6.  04_Figure4.Rmd**
+* **7.  05_Figure5.Rmd**
+* **8.  06_Figure6.Rmd** 
+* **9.  07_FigureS9_allopredictors.Rmd**
+* **10. 08_Figure2_mRNAD_validation.Rmd**
+* **11. 09_Figure5_pocket_overlap_stringency.Rmd**
 
 
 # Additional scripts and software
