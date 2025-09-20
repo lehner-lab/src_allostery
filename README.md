@@ -42,6 +42,10 @@ R Markdown files are meant to be run in the following order:
 * **6. 04_Figure4.Rmd**
 * **7. 05_Figure5.Rmd**
 * **8. 06_Figure6.Rmd** 
+* **07_FigureS9_allopredictors.Rmd**
+* **08_Figure2_mRNAD_validation.Rmd**
+* **09_Figure5_pocket_overlap_stringency.Rmd**
+
 
 # Additional scripts and software
 
