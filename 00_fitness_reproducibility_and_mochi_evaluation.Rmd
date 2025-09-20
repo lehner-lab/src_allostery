@@ -16,7 +16,7 @@ library(GGally)
 library(viridis)
 library(ggpubr)
 
-base_dir="/path/to/your/scripts"
+base_dir="/Users/ab6415/Desktop/cluster_work/54_final_github_and_zenodo_submissions/"
 
 setwd(base_dir)
 
@@ -75,32 +75,32 @@ load_and_plot_correlations<-function(Rdata_file,title,reps=3,ct_threshold,prefix
 }
 
 
-flkin_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block1_Q20_nosingles_fitness_replicates.RData","FLkinase_block1",ct_threshold=10,prefix="output_files/FigureS7a")
-flkin_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block2_Q20_nosingles_fitness_replicates.RData","FLkinase_block2",ct_threshold=30,prefix="output_files/FigureS7a")
-flkin_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block3_Q20_nosingles_fitness_replicates.RData","FLkinase_block3",ct_threshold=30,prefix="output_files/FigureS7a")
-flkin_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block4_Q20_nosingles_fitness_replicates.RData","FLkinase_block4",ct_threshold=30,prefix="output_files/FigureS7a")
-flkin_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block5_Q20_nosingles_fitness_replicates.RData","FLkinase_block5",ct_threshold=30,prefix="output_files/FigureS7a")
+flkin_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block1_Q20_nosingles_fitness_replicates.RData","FLkinase_block1",ct_threshold=10,prefix="output_files/FigureS1a")
+flkin_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block2_Q20_nosingles_fitness_replicates.RData","FLkinase_block2",ct_threshold=30,prefix="output_files/FigureS1a")
+flkin_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block3_Q20_nosingles_fitness_replicates.RData","FLkinase_block3",ct_threshold=30,prefix="output_files/FigureS1a")
+flkin_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block4_Q20_nosingles_fitness_replicates.RData","FLkinase_block4",ct_threshold=30,prefix="output_files/FigureS1a")
+flkin_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLtox_block5_Q20_nosingles_fitness_replicates.RData","FLkinase_block5",ct_threshold=30,prefix="output_files/FigureS1a")
 
 
-flsand_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block1_Q20_nosingles_fitness_replicates.RData","FLsandwich_block1",ct_threshold=30,prefix="output_files/FigureS7a")
-flsand_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block2_Q20_nosingles_fitness_replicates.RData","FLsandwich_block2",ct_threshold=30,prefix="output_files/FigureS7a")
-flsand_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block3_Q20_nosingles_fitness_replicates.RData","FLsandwich_block3",ct_threshold=30,prefix="output_files/FigureS7a")
-flsand_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block4_Q20_nosingles_fitness_replicates.RData","FLsandwich_block4",ct_threshold=30,prefix="output_files/FigureS7a")
-flsand_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block5_Q20_nosingles_fitness_replicates.RData","FLsandwich_block5",reps=2,ct_threshold=30,prefix="output_files/FigureS7a")
+flsand_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block1_Q20_nosingles_fitness_replicates.RData","FLsandwich_block1",ct_threshold=30,prefix="output_files/FigureS1a")
+flsand_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block2_Q20_nosingles_fitness_replicates.RData","FLsandwich_block2",ct_threshold=30,prefix="output_files/FigureS1a")
+flsand_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block3_Q20_nosingles_fitness_replicates.RData","FLsandwich_block3",ct_threshold=30,prefix="output_files/FigureS1a")
+flsand_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block4_Q20_nosingles_fitness_replicates.RData","FLsandwich_block4",ct_threshold=30,prefix="output_files/FigureS1a")
+flsand_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_FLsand_block5_Q20_nosingles_fitness_replicates.RData","FLsandwich_block5",reps=2,ct_threshold=30,prefix="output_files/FigureS1a")
 
 
-kdkin_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block1_Q20_nosingles_fitness_replicates.RData","KDkinase_block1",ct_threshold=10,prefix="output_files/FigureS1a")
-kdkin_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block2_Q20_nosingles_fitness_replicates.RData","KDkinase_block2",ct_threshold=30,prefix="output_files/FigureS1a")
-kdkin_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block3_Q20_nosingles_fitness_replicates.RData","KDkinase_block3",ct_threshold=30,prefix="output_files/FigureS1a")
-kdkin_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block4_Q20_nosingles_fitness_replicates.RData","KDkinase_block4",ct_threshold=30,prefix="output_files/FigureS1a")
-kdkin_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block5_Q20_nosingles_fitness_replicates.RData","KDkinase_block5",ct_threshold=30,prefix="output_files/FigureS1a")
+kdkin_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block1_Q20_nosingles_fitness_replicates.RData","KDkinase_block1",ct_threshold=10,prefix="output_files/FigureS7a")
+kdkin_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block2_Q20_nosingles_fitness_replicates.RData","KDkinase_block2",ct_threshold=30,prefix="output_files/FigureS7a")
+kdkin_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block3_Q20_nosingles_fitness_replicates.RData","KDkinase_block3",ct_threshold=30,prefix="output_files/FigureS7a")
+kdkin_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block4_Q20_nosingles_fitness_replicates.RData","KDkinase_block4",ct_threshold=30,prefix="output_files/FigureS7a")
+kdkin_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDtox_block5_Q20_nosingles_fitness_replicates.RData","KDkinase_block5",ct_threshold=30,prefix="output_files/FigureS7a")
 
 
-kdab_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block1_Q20_nosingles_fitness_replicates.RData","KDabundance_block1",ct_threshold=30,prefix="output_files/FigureS1a")
-kdab_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block2_Q20_nosingles_fitness_replicates.RData","KDabundance_block2",ct_threshold=30,prefix="output_files/FigureS1a")
-kdab_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block3_Q20_nosingles_fitness_replicates.RData","KDabundance_block3",ct_threshold=30,prefix="output_files/FigureS1a")
-kdab_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block4_Q20_nosingles_fitness_replicates.RData","KDabundance_block4",ct_threshold=30,prefix="output_files/FigureS1a")
-kdab_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block5_Q20_nosingles_fitness_replicates.RData","KDabundance_block5",ct_threshold=30,prefix="output_files/FigureS1a")
+kdab_b1<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block1_Q20_nosingles_fitness_replicates.RData","KDabundance_block1",ct_threshold=30,prefix="output_files/FigureS7a")
+kdab_b2<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block2_Q20_nosingles_fitness_replicates.RData","KDabundance_block2",ct_threshold=30,prefix="output_files/FigureS7a")
+kdab_b3<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block3_Q20_nosingles_fitness_replicates.RData","KDabundance_block3",ct_threshold=30,prefix="output_files/FigureS7a")
+kdab_b4<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block4_Q20_nosingles_fitness_replicates.RData","KDabundance_block4",ct_threshold=30,prefix="output_files/FigureS7a")
+kdab_b5<-load_and_plot_correlations("./analysis_files/DiMSum_fitness_tables/designedvariants_KDab_block5_Q20_nosingles_fitness_replicates.RData","KDabundance_block5",ct_threshold=30,prefix="output_files/FigureS7a")
 
 
 ```
@@ -310,7 +310,6 @@ ggplot(KD_model_performance)+
   facet_wrap(~model)+
   ylab("percent variance explained")+
   theme_classic()
-ggsave("output_files/FigureS1c_mochi_FEV_explained_KD.pdf")
 
 
 FL_2state_performance_summary$model<-rep("2 state",nrow(FL_2state_performance_summary))
@@ -329,6 +328,8 @@ ggplot(FL_model_performance)+
   facet_wrap(~model)+
   ylab("percent variance explained")+
   theme_classic()
+ggsave("/Users/ab6415/Desktop/cluster_work/54_final_github_and_zenodo_submissions/output_files/FigureS1c_mochi_FEV_explained_FL.pdf")
+
 
 
 

@@ -15,28 +15,29 @@ library(data.table)
 library(ggpubr)
 
 
-setwd("/Users/tbeltran/Desktop/cluster_work/52_final_SRC_paper/2_code/")
+base_dir=""
+setwd(base_dir)
 
 fitness_scores<-fread("output_files/Figure1_fitness_scores_all_assays_scaled_WT_stops.txt")
 
 
-#KD 
+#FL 
 ggplot(fitness_scores[variant_type %in% c("singles","doubles"),])+
-    geom_density(aes(x=-KD_kinase_fitness_scaled,col=variant_type,fill=variant_type),alpha=0.25)+
-    geom_vline(xintercept=-mean(fitness_scores[WT==TRUE,]$KD_kinase_fitness_scaled))+
-    geom_vline(xintercept=-mean(fitness_scores[STOP==TRUE,]$KD_kinase_fitness_scaled,na.rm = TRUE),linetype="dashed")+
-    coord_cartesian(xlim = c(-0.6,0.75))+
+    geom_density(aes(x=-FL_kinase_fitness_scaled,col=variant_type,fill=variant_type),alpha=0.25)+
+    geom_vline(xintercept=-median(fitness_scores[WT==TRUE,]$FL_kinase_fitness_scaled))+
+    geom_vline(xintercept=-median(fitness_scores[STOP==TRUE,]$FL_kinase_fitness_scaled,na.rm = TRUE),linetype="dashed")+
+    coord_cartesian(xlim = c(-0.4,0.6))+
     xlab("toxicity")+
     theme_classic()
-ggsave("output_files/Figure1b_KD_activity_fitness_distribution.pdf")
+ggsave("output_files/Figure1b_FL_activity_fitness_distribution.pdf")
   
 ggplot(fitness_scores[variant_type %in% c("singles","doubles"),])+
-    geom_density(aes(x=KD_abundance_fitness_scaled,col=variant_type,fill=variant_type),alpha=0.25)+
-    geom_vline(xintercept=mean(fitness_scores[WT==TRUE,]$KD_abundance_fitness_scaled))+
-    geom_vline(xintercept=mean(fitness_scores[STOP==TRUE,]$KD_abundance_fitness_scaled,na.rm = TRUE),linetype="dashed")+
-    coord_cartesian(xlim = c(-1.5,0.5))+
+    geom_density(aes(x=FL_sandwich_fitness_scaled,col=variant_type,fill=variant_type),alpha=0.25)+
+    geom_vline(xintercept=mean(fitness_scores[WT==TRUE,]$FL_sandwich_fitness_scaled))+
+    geom_vline(xintercept=mean(fitness_scores[STOP==TRUE,]$FL_sandwich_fitness_scaled,na.rm = TRUE),linetype="dashed")+
+    coord_cartesian(xlim = c(-0.5,0.25))+
     theme_classic()
-ggsave("output_files/Figure1e_KD_abundance_fitness_distribution.pdf")
+ggsave("output_files/Figure1e_FL_sandwich_fitness_distribution.pdf")
 
 
 
@@ -146,7 +147,7 @@ ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=src,y=KD_abundance_fi
   theme_classic()+
   theme(text = element_text(size=15))
 
-ggsave("output_files/Figure1f_correlation_with_wb_KD_abundance.pdf")
+ggsave("output_files/FigureS7c_correlation_with_wb_KD_abundance.pdf")
 
 
 ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=src,y=FL_sandwich_fitness))+
@@ -159,7 +160,7 @@ ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=src,y=FL_sandwich_fit
   theme_classic()+
   theme(text = element_text(size=15))
 
-ggsave("output_files/FigureS6_correlation_with_wb_FL_sandwich.pdf")
+ggsave("output_files/Figure1f_correlation_with_wb_FL_sandwich.pdf")
 
 
 ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=log2(ptyr),y=-KD_kinase_fitness))+
@@ -171,7 +172,7 @@ ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=log2(ptyr),y=-KD_kina
   stat_cor(label.y.npc = "top",label.x.npc = "middle")+
   theme_classic()+
   theme(text = element_text(size=15))
-ggsave("output_files/Figure1c_correlation_with_wb_KD_kinase.pdf")
+ggsave("output_files/FigureS7b_correlation_with_wb_KD_kinase.pdf")
 
 
 ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=log2(ptyr),y=-FL_kinase_fitness))+
@@ -183,18 +184,20 @@ ggplot(ahler_ptyrdata_fitness[!duplicated(Variant),],aes(x=log2(ptyr),y=-FL_kina
   stat_cor(label.y.npc = "top",label.x.npc = "middle")+
   theme_classic()+
   theme(text = element_text(size=15))
-ggsave("output_files/FigureS6_correlation_with_wb_FL_kinase.pdf")
+ggsave("output_files/Figure1c_correlation_with_wb_FL_kinase.pdf")
 
 
 ```
 
 ```{r plot mochi weights}
 
-weights_flkin_sand_activity<-fread("../1_mochi_files/3state_FLkin_FLsand/3state_FLkin_FLsand_o1/task_1/weights/weights_Activity.txt")
-weights_flkin_sand_abundance<-fread("../1_mochi_files/3state_FLkin_FLsand/3state_FLkin_FLsand_o1/task_1/weights/weights_Folding.txt")
 
-weights_kdkin_ab_activity<-fread("../1_mochi_files/3state_KDkin_KDab/3state_KDkin_KDab_o1/task_1/weights/weights_Activity.txt")
-weights_kdkin_ab_abundance<-fread("../1_mochi_files/3state_KDkin_KDab/3state_KDkin_KDab_o1/task_1/weights/weights_Folding.txt")
+weights_flkin_sand_activity<-fread("./analysis_files/MoCHI_weights/3state_FL_weights_Activity.txt")
+weights_flkin_sand_abundance<-fread("./analysis_files/MoCHI_weights/3state_FL_weights_Folding.txt")
+
+
+weights_kdkin_ab_activity<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Activity.txt")
+weights_kdkin_ab_abundance<-fread("./analysis_files/MoCHI_weights/3state_KD_weights_Folding.txt")
 
 
 plot_weights_heatmap<-function(weights_dt,title){
@@ -232,12 +235,11 @@ plot_weights_heatmap<-function(weights_dt,title){
 ```{r plot heatmaps fl, fig.width=15, fig.height=3}
 
 library(scales)
+plot_weights_heatmap(weights_kdkin_ab_abundance,"abundance")
+ggsave("output_files/FigureS7f_KD_3statemodel_abundance_weights.pdf")
 
-plot_weights_heatmap(weights_flkin_sand_abundance,"sandwich")
-ggsave("output_files/FigureS6_FL_3statemodel_sandwich_weights.pdf")
-
-plot_weights_heatmap(weights_flkin_sand_activity,"activity")
-ggsave("output_files/FigureS6_FL_3statemodel_activity_weights.pdf")
+plot_weights_heatmap(weights_kdkin_ab_activity,"activity")
+ggsave("output_files/FigureS7e_KD_3statemodel_activity_weights.pdf")
 
 
 ```
@@ -247,12 +249,11 @@ ggsave("output_files/FigureS6_FL_3statemodel_activity_weights.pdf")
 
 ```{r plot kd heatmaps, fig.width=15, fig.height=3}
 
+plot_weights_heatmap(weights_flkin_sand_abundance,"sandwich")
+ggsave("output_files/Figure1k_FL_3statemodel_sandwich_weights.pdf")
 
-plot_weights_heatmap(weights_kdkin_ab_abundance,"abundance")
-ggsave("output_files/Figure1k_KD_3statemodel_abundance_weights.pdf")
-
-plot_weights_heatmap(weights_kdkin_ab_activity,"activity")
-ggsave("output_files/Figure1l_KD_3statemodel_activity_weights.pdf")
+plot_weights_heatmap(weights_flkin_sand_activity,"activity")
+ggsave("output_files/Figure1l_FL_3statemodel_activity_weights.pdf")
 
 
 ```

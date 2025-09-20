@@ -1,0 +1,100 @@
+---
+title: "Src mRNA-d data"
+author: "Toni Beltran"
+date: "27/06/2025"
+output: html_document
+---
+
+```{r setup}
+
+library(data.table)
+library(ggplot2)
+
+base_dir=""
+setwd(base_dir)
+
+all_variants<-fread("analysis_files/all_variants_SRC_50_mRNAD.csv")
+k50s<-fread("analysis_files/k50_SRC_22022025_50.csv")
+
+src_aPCA<-fread("analysis_files/SRC_ALL_ASSAYS_scaled_WT_stops.txt")
+src_aPCA$fitness1_scaled.x<-NULL; src_aPCA$fitness1_scaled.y<-NULL
+src_aPCA$sigma1_scaled.x<-NULL; src_aPCA$sigma1_scaled.y<-NULL
+
+
+merged<-merge(src_aPCA,k50s,by.x="aa_seq",by.y = "dna_seq")
+merged_fitness<-merge(merged,all_variants,by="aa_seq")
+
+energies<-fread("analysis_files/src_suptable2.txt")
+energies[, c("from", "position", "to") := tstrsplit(id, "(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)", perl = TRUE)]
+energies[,position_corrected:=as.numeric(position)+267]
+
+energies[,MUT_ID_corrected:=paste(from,position_corrected,to,sep="")]
+
+merged_energies<-merge(merged_fitness,energies,by.x="MUT_ID",by.y="MUT_ID_corrected")
+
+thrs<-c(10,20,50,100,250,500,750,1000,1250,1500,1750,2000,3000,4000,5000,6000,7000,8000,9000,10000)
+cors_dG_aPCA_dG_mRNAD<-c()
+cors_fitness_aPCA_fitness_mRNAD<-c()
+cors_dG_aPCA_fitness_mRNAD<-c()
+cors_fitness_aPCA_dG_mRNAD<-c()
+
+for (thr in thrs){
+  cors_dG_aPCA_dG_mRNAD<-c(cors_dG_aPCA_dG_mRNAD,(cor(merged_energies[mean_count>thr,]$`FL_folding_mean_kcal/mol`,
+            merged_energies[mean_count>thr,]$log10_K50_t,
+            use='pairwise.complete.obs')))
+
+  cors_fitness_aPCA_fitness_mRNAD<-c(cors_fitness_aPCA_fitness_mRNAD,(cor(merged_energies[mean_count>thr,]$FL_sandwich_fitness,
+            merged_energies[mean_count>thr,]$fitness7_uncorr,
+            use='pairwise.complete.obs')))
+  
+  cors_dG_aPCA_fitness_mRNAD<-c(cors_dG_aPCA_fitness_mRNAD,(cor(merged_energies[mean_count>thr,]$`FL_folding_mean_kcal/mol`,
+            merged_energies[mean_count>thr,]$fitness7_uncorr,
+            use='pairwise.complete.obs')))
+  
+  cors_fitness_aPCA_dG_mRNAD<-c(cors_fitness_aPCA_dG_mRNAD,(cor(merged_energies[mean_count>thr,]$FL_sandwich_fitness,
+            merged_energies[mean_count>thr,]$log10_K50_t,
+            use='pairwise.complete.obs')))
+
+}
+
+
+cor_thr_analysis_df<-data.table(cbind(thrs,
+                           cors_dG_aPCA_dG_mRNAD,
+                           cors_fitness_aPCA_fitness_mRNAD,
+                           cors_dG_aPCA_fitness_mRNAD,
+                           cors_fitness_aPCA_dG_mRNAD))
+
+ggplot(cor_thr_analysis_df)+
+  geom_line(aes(x=thrs,y=-cors_dG_aPCA_dG_mRNAD,col="dG_aPCA_dG_mRNAD"))+
+  geom_line(aes(x=thrs,y=cors_fitness_aPCA_fitness_mRNAD,col="fitness_aPCA_fitness_mRNAD"))+
+  geom_line(aes(x=thrs,y=-cors_dG_aPCA_fitness_mRNAD,col="dG_aPCA_fitness_mRNAD"))+
+  geom_line(aes(x=thrs,y=cors_fitness_aPCA_dG_mRNAD,col="fitness_aPCA_dG_mRNAD"))+
+  xlab("input count threshold")+
+  ylab("Pearson's r")
+ 
+library(ggpubr)
+
+ggplot(merged_energies[mean_count>10000,],aes(y=`FL_folding_mean_kcal/mol`,x=log10_K50_t))+
+  geom_point()+
+  stat_cor()
+
+nrow(merged_energies[mean_count>10000,])
+
+merged_energies[mean_count>10000,]
+ggplot(merged_energies[mean_count>10000,],aes(y=`FL_folding_mean_kcal/mol`,x=log10_K50_t))+
+  geom_point(col="blue")+
+  geom_smooth(method="lm")+
+  stat_cor()+
+  theme_classic()
+ggsave("output_files/Figure_2b_FL_correlations_aPCA_mRNA-d.pdf",width = 3,height = 3)
+
+ggplot(merged_energies[mean_count>10000,],aes(y=`KD_folding_mean_kcal/mol`,x=log10_K50_t))+
+  geom_point(col="blue")+
+  geom_smooth(method="lm")+
+  stat_cor()+
+  theme_classic()
+ggsave("output_files/Figure_S7d_KD_correlations_aPCA_mRNA-d.pdf",width = 3,height = 3)
+
+
+```
+

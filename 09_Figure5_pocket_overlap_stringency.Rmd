@@ -1,0 +1,243 @@
+---
+title: "Figure5_pocket_stringency"
+author: "Toni Beltran"
+date: "17/09/2025"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+
+
+library(ggplot2)
+library(data.table)
+library(scales)
+library(gplots)
+
+base_dir=""
+setwd(base_dir)
+
+distances_to_smallmols<-fread("./analysis_files/src_to_smallmolecule_distances_structures_5A.txt")
+distances_to_smallmols<-distances_to_smallmols[V3!="H",]
+distances_to_smallmols<-distances_to_smallmols[V11>4,]
+distances_to_smallmols$druggability_score<-unlist(lapply(distances_to_smallmols$V6,FUN=function(string){return(as.numeric(strsplit(string,"-")[[1]][3]))}))
+distances_to_smallmols<-distances_to_smallmols[druggability_score>5,]
+
+
+mindistances_to_smallmols_byresidue<-distances_to_smallmols[,list(mindist=min(V11)),by=list(V1,V4,V5,V6)]
+mindistances_to_smallmols_byresidue[,pocket_ID:=paste(V1,V6,sep="_")]
+
+pocket_IDs<-unique(mindistances_to_smallmols_byresidue$pocket_ID)
+length(pocket_IDs)
+
+#offsets for each structure
+mindistances_to_smallmols_byresidue[V1=="1YOL_A",V5:=V5-2]
+mindistances_to_smallmols_byresidue[V1=="1YOL_B",V5:=V5-2]
+mindistances_to_smallmols_byresidue[V1=="1YOJ_A",V5:=V5-2]
+mindistances_to_smallmols_byresidue[V1=="1YOJ_B",V5:=V5-2]
+
+#cluster pockets
+
+pocket_overlaps_jaccard<-matrix(data=NA,nrow=length(pocket_IDs),ncol=length(pocket_IDs))
+pocket_overlaps_sorensen<-matrix(data=NA,nrow=length(pocket_IDs),ncol=length(pocket_IDs))
+pocket_overlaps_szymkiewicz<-matrix(data=NA,nrow=length(pocket_IDs),ncol=length(pocket_IDs))
+
+#calculate jaccard index distances
+for (i in seq(length(pocket_IDs))){
+    for (j in seq(length(pocket_IDs))){
+      
+            residues_i<-mindistances_to_smallmols_byresidue[pocket_ID==pocket_IDs[i],]$V5
+            residues_j<-mindistances_to_smallmols_byresidue[pocket_ID==pocket_IDs[j],]$V5
+            
+            pocket_overlaps_jaccard[i,j]<-length(which(residues_i %in% residues_j))/(length(unique(c(residues_i,residues_j))))
+            pocket_overlaps_sorensen[i,j]<-2*length(which(residues_i %in% residues_j))/(length(residues_i)+length(residues_j))
+            pocket_overlaps_szymkiewicz[i,j]<-length(which(residues_i %in% residues_j))/min(c(length(residues_i),length(residues_j)))
+            
+    }
+}
+
+colnames(pocket_overlaps_jaccard)<-pocket_IDs
+rownames(pocket_overlaps_jaccard)<-pocket_IDs
+colnames(pocket_overlaps_sorensen)<-pocket_IDs
+rownames(pocket_overlaps_sorensen)<-pocket_IDs
+colnames(pocket_overlaps_szymkiewicz)<-pocket_IDs
+rownames(pocket_overlaps_szymkiewicz)<-pocket_IDs
+
+#szymkiewicz clusters
+hr <- hclust(as.dist(1-pocket_overlaps_szymkiewicz), method="complete")
+mycl <- cutree(hr, h=max(hr$height/2))
+clusterCols <- rainbow(length(unique(mycl)))
+myClusterSideBar <- clusterCols[mycl]
+
+heatmap.2(1-pocket_overlaps_szymkiewicz, main="Szymkiewicz-Simpson pocket clusters", Rowv=as.dendrogram(hr), Colv = as.dendrogram(hr),dendrogram="row", trace="none", RowSideColors= myClusterSideBar,labRow = FALSE,labCol = FALSE)
+dev.off()
+
+pocket_annotation<-fread("./analysis_files/sites_to_pocketIDs.txt")[,1:7]
+
+#label each pocket with its cluster number
+mindistances_to_smallmols_byresidue$pocket_cluster<-unlist(lapply(mindistances_to_smallmols_byresidue$pocket_ID,FUN=function(id){
+  return(as.numeric(mycl[id]))
+}))
+#how many pockets in each cluster
+mindistances_to_smallmols_byresidue$pocket_cluster_size<-unlist(lapply(mindistances_to_smallmols_byresidue$pocket_ID,FUN=function(id){
+  return(length(which(mycl==as.numeric(mycl[id]))))
+}))
+
+mindistances_to_smallmols_byresidue<-merge(mindistances_to_smallmols_byresidue,pocket_annotation,by="pocket_ID",all.x=TRUE)
+
+```
+
+```{r plot}
+
+
+library(data.table)
+library(ggplot2)
+library(scales)
+
+
+base_assign <- data.table(
+  pocket_ID = names(mycl),
+  base_id   = as.integer(mycl)   
+)
+
+base_sizes <- base_assign[, .N, by = .(base_id)]
+
+cuts <- data.table(
+  cut_label = factor(c("h/2", "h/1.5", "h/1.25", "h/1.1"),
+                     levels = c("h/2", "h/1.5", "h/1.25", "h/1.1")),
+  h = c(h_max/2, h_max/1.5, h_max/1.25, h_max/1.1)
+)
+
+map_dt <- rbindlist(lapply(seq_len(nrow(cuts)), function(i) {
+  h   <- cuts$h[i]
+  lab <- as.character(cuts$cut_label[i])
+
+  super <- cutree(hr, h = h)
+  dt <- data.table(pocket_ID = names(super), super_id = as.integer(super))
+  dt <- merge(dt, base_assign, by = "pocket_ID", all.x = TRUE, sort = FALSE)
+  dt[, cut_label := lab]
+
+  dt[, .(super_id = unique(super_id)[1L]), by = .(cut_label, base_id)]
+}))
+
+order_key <- dcast(map_dt, base_id ~ cut_label, value.var = "super_id")
+order_key <- merge(order_key, base_sizes, by = "base_id", all.x = TRUE)  # N = size
+setorder(order_key, `h/1.1`, `h/1.25`, `h/1.5`, -N, base_id)
+order_key[, y_idx := seq_len(.N)]
+
+y_axis_labels <- order_key[order(y_idx), base_id]
+
+final_levels <- sort(unique(order_key$`h/1.1`))
+final_map <- order_key[, .(base_id, final_super = `h/1.1`)]
+final_map[, final_ord := match(final_super, final_levels)]
+final_map[, final_lab := paste0("L", final_ord)]
+
+tiles <- merge(map_dt, order_key[, .(base_id, y_idx)], by = "base_id", all.x = TRUE)
+tiles <- merge(tiles, final_map[, .(base_id, final_lab)], by = "base_id", all.x = TRUE)
+
+tiles[, x_idx := as.integer(factor(cut_label, levels = levels(cuts$cut_label)))]
+tiles[, `:=`(xmin = x_idx - 0.48, xmax = x_idx + 0.48,
+             ymin = y_idx - 0.48, ymax = y_idx + 0.48)]
+
+blocks <- tiles[, .(ymin = min(ymin), ymax = max(ymax),
+                    xmin = unique(xmin), xmax = unique(xmax)),
+               by = .(cut_label, x_idx, super_id)]
+
+J <- length(final_levels)
+final_cols <- hue_pal()(J)
+names(final_cols) <- paste0("L", seq_len(J))
+
+eps <- 0.02
+blocks_inset <- copy(blocks)
+blocks_inset[, `:=`(xmin = xmin + eps, xmax = xmax - eps,
+                    ymin = ymin + eps, ymax = ymax - eps)]
+
+p <- ggplot() +
+  geom_rect(data = tiles,
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = final_lab),
+            color = "white", linewidth = 0.3) +
+  geom_rect(data = blocks_inset,
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+            fill = NA, color = "grey15", linewidth = 0.8) +
+  scale_fill_manual(values = final_cols, name = "Final clusters @ h/1.1") +
+  scale_x_continuous(breaks = seq_len(nrow(cuts)), labels = levels(cuts$cut_label),
+                     limits = c(0.5, nrow(cuts) + 0.6), expand = c(0,0)) +
+  scale_y_continuous(breaks = order_key$y_idx, labels = y_axis_labels,
+                     expand = c(0,0)) +
+  labs(title = "Baseline clusters (rows = pocket_cluster IDs at h/2) painted by final clusters (h/1.1)",
+       subtitle = "Grey boxes = superclusters at each cut; colors = final membership at most lenient cut.",
+       x = "Cut height", y = "pocket_cluster (h/2)") +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid  = element_blank(),
+    axis.text.y = element_text(size = 8),
+    plot.margin = margin(10, 20, 10, 20)
+  )
+
+#add overlap quantifications
+pockets_by_base <- split(base_assign$pocket_ID, base_assign$base_id)
+
+
+base_residues <- lapply(pockets_by_base, function(pids) {
+  unique(unlist(res_by_pocket[pids], use.names = FALSE))
+})
+names(base_residues) <- as.character(names(base_residues))
+
+calc_block_overlap_from_sets <- function(lab, h) {
+  super <- cutree(hr, h = h)  # names = hr$labels
+  dt <- data.table(pocket_ID = names(super), super_id = as.integer(super))
+  dt <- merge(dt, base_assign, by = "pocket_ID", all.x = TRUE, sort = FALSE)
+  dt[, cut_label := lab]
+
+  dt[, {
+    bset <- sort(unique(base_id))
+    if (length(bset) < 2L) {
+      .(avg_overlap = NA_real_, n_pairs = 0L)
+    } else {
+      cmb <- t(combn(bset, 2))
+      vals <- apply(cmb, 1, function(bb) {
+        r1 <- base_residues[[as.character(bb[1])]]
+        r2 <- base_residues[[as.character(bb[2])]]
+        if (length(r1) == 0L || length(r2) == 0L) return(NA_real_)
+        inter <- length(intersect(r1, r2))
+        denom <- length(unique(c(r1,r2)))
+        if (denom == 0L) NA_real_ else inter / denom
+      })
+      vals <- vals[is.finite(vals)]
+      .(avg_overlap = if (length(vals)) mean(vals) else NA_real_,
+        n_pairs     = as.integer(length(vals)))
+    }
+  }, by = super_id][, cut_label := lab]
+}
+
+block_stats2 <- rbindlist(mapply(
+  FUN = calc_block_overlap_from_sets,
+  lab = as.character(cuts$cut_label),
+  h   = cuts$h,
+  SIMPLIFY = FALSE
+), fill = TRUE)
+
+labels_dt2 <- merge(blocks_inset, block_stats2,
+                    by = c("cut_label", "super_id"), all.x = TRUE)
+
+labels_dt2[, `:=`(x_center = (xmin + xmax) / 2,
+                  y_center = (ymin + ymax) / 2)]
+
+labels_dt2[, label := ifelse(is.na(avg_overlap) | n_pairs == 0L, "",
+                             sprintf("μ=%.2f\nn=%d", avg_overlap, n_pairs))]
+
+p <- p +
+  geom_text(data = labels_dt2[nchar(label) > 0],
+            aes(x = x_center, y = y_center, label = label),
+            size = 3.1, lineheight = 0.95, fontface = "bold")
+print(p)
+
+
+ggsave("./output_files/FigureS10_pocket_clusters_at_different_stringency_level_uniqueresoverlaps.pdf")
+
+
+```
+
+
+
+

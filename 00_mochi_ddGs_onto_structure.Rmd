@@ -10,7 +10,7 @@ output: html_document
 library(ggplot2)
 library(data.table)
 
-base_dir="/path/to/your/scripts"
+base_dir="/Users/tbeltran/Desktop/cluster_work/54_final_github_and_zenodo_submissions/"
 
 setwd(base_dir)
 

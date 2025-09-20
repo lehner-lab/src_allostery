@@ -1,0 +1,255 @@
+---
+title: "DMS vs allostery predictors"
+author: "Toni Beltran"
+date: "09/01/2024"
+output: html_document
+---
+
+```{r comparison to predictors}
+
+library(ggplot2)
+library(data.table)
+theme_set(theme_classic())
+
+base_dir=""
+setwd(base_dir)
+
+activity_weights<-fread("analysis_files/MoCHI_weights/3state_KD_weights_Activity.txt")
+
+activity_weights[,residue:=Pos+267]
+activity_weights_residue_avg<-activity_weights[,.(mean_abs_ddG=mean(`mean_kcal/mol`)),by="residue"]
+
+
+#pocket data
+
+#allosite FL SRC
+allosite_FL_pocket0<-c(275,279,388,301,344,411,407,297,295,423,281,391,425,276,393,390,274,348,345,278,404,416,302,341,280,408,296,273,277,386)+3
+allosite_FL_pocket1<-c(397,361,159,163,156,396,165,398,166,365,160,520,366,343,362,164,522,197)+3
+allosite_FL_pocket2<-c(403,314,407,295,294,323,281,404,405,338,325,393,336,293)+3
+
+allosite_FL_pockets<-data.table(residue=c(allosite_FL_pocket0,allosite_FL_pocket1,allosite_FL_pocket2),
+                                pocket_number=c(rep(0,length(allosite_FL_pocket0)),rep(1,length(allosite_FL_pocket1)),
+                                                rep(2,length(allosite_FL_pocket2))))
+allosite_FL_scores<-data.table(pocket_number=c(0,1,2),
+                               druggability_score=c(0.61,0.359,0.715),
+                               nma_score=c(0.806,0.199,0.347),
+                               overall_score=c(0.707,0.622,0.550))
+
+allosite_FL_pockets_weights<-merge(allosite_FL_pockets,activity_weights_residue_avg,by="residue",all.x = TRUE)
+
+allosite_FL_averaged_by_pocket<-allosite_FL_pockets_weights[,.(mean_mean_kcalmol=mean(mean_abs_ddG,na.rm = TRUE)),by="pocket_number"]
+
+allosite_FL_dms_merged<-merge(allosite_FL_averaged_by_pocket,allosite_FL_scores,by="pocket_number")
+
+allosite_FL_dms_merged[!(pocket_number %in% c(0,2)),ATP_binding_site:="no"]
+allosite_FL_dms_merged[pocket_number %in% c(0,2),ATP_binding_site:="yes"]
+
+
+ggplot(allosite_FL_dms_merged)+
+  geom_point(aes(x=overall_score,y=mean_mean_kcalmol,col=ATP_binding_site))+
+  xlab("allosite score")
+ggsave("output_files/FigureS7c_allosite_overall_score.pdf")
+
+ggplot(allosite_FL_dms_merged)+
+  geom_point(aes(x=nma_score,y=mean_mean_kcalmol,col=ATP_binding_site))+
+  xlab("allosite perturbation score")
+ggsave("output_files/FigureS7d_allosite_perturbation_score.pdf")
+
+
+#allosite KD SRC
+allosite_KD_pocket0<-c(275,279,388,301,344,411,407,297,295,423,281,391,348,276,393,390,274,425,345,278,404,416,302,341,280,408,296,273,277,386)+3
+allosite_KD_pocket1<-c(403,314,393,295,294,323,281,404,405,338,325,407,336,293)+3
+allosite_KD_pocket2<-c(326,267,327,286,290,262,259,292,337)+3
+
+allosite_KD_pockets<-data.table(residue=c(allosite_KD_pocket0,allosite_KD_pocket1,allosite_KD_pocket2),
+                                pocket_number=c(rep(0,length(allosite_KD_pocket0)),rep(1,length(allosite_KD_pocket1)),
+                                                rep(2,length(allosite_KD_pocket2))))
+                                
+allosite_KD_scores<-data.table(pocket_number=c(0,1,2),
+                               druggability_score=c(0.291,0.385,0.852),
+                               nma_score=c(0.998,0.787,0.152),
+                               overall_score=c(0.733,0.567,0.513))
+
+allosite_KD_pockets_weights<-merge(allosite_KD_pockets,activity_weights_residue_avg,by="residue",all.x = TRUE)
+
+allosite_KD_averaged_by_pocket<-allosite_KD_pockets_weights[,.(mean_mean_kcalmol=mean(mean_abs_ddG,na.rm = TRUE)),by="pocket_number"]
+
+allosite_KD_dms_merged<-merge(allosite_KD_averaged_by_pocket,allosite_KD_scores,by="pocket_number")
+
+allosite_KD_dms_merged[!(pocket_number %in% c(0,1)),ATP_binding_site:="no"]
+allosite_KD_dms_merged[pocket_number %in% c(0,1),ATP_binding_site:="yes"]
+
+ggplot(allosite_KD_dms_merged)+
+  geom_point(aes(x=overall_score,y=mean_mean_kcalmol,col=ATP_binding_site))+
+  xlab("allosite score")
+ggsave("output_files/FigureS7e_KD_allosite_overall_score.pdf")
+
+
+ggplot(allosite_KD_dms_merged)+
+  geom_point(aes(x=nma_score,y=mean_mean_kcalmol,col=ATP_binding_site))+
+  xlab("allosite perturbation score")
+ggsave("output_files/FigureS7f_KD_allosite_perturbation_score.pdf")
+
+
+
+#passer
+passer_pockets<-fread("analysis_files/allopredictors/passer_output/pockets/passer_pockets.txt")
+passer_pockets<-passer_pockets[,.(residue=unique(V6)+3),by="V1"]
+passer_pockets$pocket_number<-as.numeric(unlist(lapply(passer_pockets$V1,FUN = function(string){
+  string<-strsplit(string,"_")[[1]][1]
+  return(substr(string,7,nchar(string)))
+})))
+
+passer_pocket_scores<-fread("analysis_files/allopredictors/passer_output/passer.txt",header=FALSE)
+passer_pocket_scores$pocket_number<-as.numeric(unlist(lapply(passer_pocket_scores$V3,FUN = function(string){
+  return(substr(string,1,nchar(string)-1))
+})))
+colnames(passer_pocket_scores)[5]<-"passer_score"
+
+passer_pockets_weights<-merge(passer_pockets,activity_weights_residue_avg,by="residue",all.x = TRUE)
+
+passer_averaged_by_pocket<-passer_pockets_weights[,.(mean_mean_kcalmol=mean(mean_abs_ddG,na.rm = TRUE)),by="pocket_number"]
+
+passer_dms_merged<-merge(passer_pocket_scores,passer_averaged_by_pocket,by="pocket_number")
+
+passer_dms_merged[pocket_number!=1,ATP_binding_site:="no"]
+passer_dms_merged[pocket_number==1,ATP_binding_site:="yes"]
+
+ggplot(na.omit(passer_dms_merged))+
+  geom_point(aes(x=passer_score,y=mean_mean_kcalmol,col=ATP_binding_site))+
+  xlab("passer score")
+ggsave("output_files/FigureS7g_passer_scores.pdf")
+
+#apop
+
+apop_pockets<-fread("analysis_files/allopredictors/apop_output/apop_pockets.txt")
+apop_pockets<-apop_pockets[,.(residue=unique(V6)+3),by="V1"]
+apop_pocket_scores<-fread("analysis_files/allopredictors/apop_output/apop_pocket_scores.txt",header=FALSE)
+
+
+apop_pockets$pocket_number<-as.numeric(unlist(lapply(apop_pockets$V1,FUN = function(string){
+  string<-strsplit(string,"_")[[1]][1]
+  return(substr(string,7,nchar(string)))
+})))
+
+
+apop_pocket_scores$pocket_number<-as.numeric(unlist(lapply(apop_pocket_scores$V1,FUN = function(string){
+  string<-strsplit(string,"_")[[1]][1]
+  return(substr(string,20,nchar(string)))
+})))
+
+apop_pockets_weights<-merge(apop_pockets,activity_weights_residue_avg,by="residue",all.x = TRUE)
+apop_averaged_by_pocket<-apop_pockets_weights[,.(mean_mean_kcalmol=mean(mean_abs_ddG,na.rm = TRUE)),by="pocket_number"]
+apop_dms_merged<-merge(apop_pocket_scores,apop_averaged_by_pocket,by="pocket_number")
+
+apop_dms_merged$apop_score<-as.numeric(unlist(lapply(apop_dms_merged$V3,FUN = function(string){
+  return(substr(string,13,nchar(string)))
+})))
+
+apop_dms_merged[pocket_number!=2,ATP_binding_site:="no"]
+apop_dms_merged[pocket_number==2,ATP_binding_site:="yes"]
+
+ggplot(na.omit(apop_dms_merged))+
+  geom_point(aes(x=apop_score,y=mean_mean_kcalmol,col=ATP_binding_site))+
+  xlab("apop score")
+ggsave("output_files/FigureS7h_apop_scores.pdf")
+
+
+#continuous data - Ohm
+
+ohm_to_anp<-fread("analysis_files/allopredictors/ohm_output/ohm_src_allostery_to_anp.txt")
+ohm_to_as<-fread("analysis_files/allopredictors/ohm_output/ohm_src_allostery_to_activesite.txt")
+
+ohm_to_anp$pos_in_uniprot<-seq(86,nrow(ohm_to_anp)+85)
+ohm_to_as$pos_in_uniprot<-seq(86,nrow(ohm_to_anp)+85)
+
+activity_weights[,pos_in_uniprot:=Pos+267]
+
+ohm_to_anp<-merge(activity_weights,ohm_to_anp,
+                  by="pos_in_uniprot",all.x = TRUE)
+ohm_to_as<-merge(activity_weights,ohm_to_as,
+                  by="pos_in_uniprot",all.x = TRUE)
+
+
+ggplot(ohm_to_anp)+
+  geom_point(aes(x=abs(`mean_kcal/mol`),y=V1))+
+  ggtitle("ANP as reference point")+
+  ylab("Ohm allosteric coupling intensity (ACI)")
+
+ggplot(ohm_to_as[V1>0,])+
+  geom_point(aes(x=abs(`mean_kcal/mol`),y=V1))+
+  ggtitle("active site as reference point")+
+  ylab("Ohm allosteric coupling intensity (ACI)")
+
+cor(abs(ohm_to_anp$`mean_kcal/mol`),ohm_to_anp$V1)**2
+cor(abs(ohm_to_as[V1>0,]$`mean_kcal/mol`),ohm_to_as[V1>0,]$V1)**2
+
+
+ohm_to_anp_averaged<-ohm_to_anp[,.(site_averaged_ddG=mean(`mean_kcal/mol`),
+              ACI=mean(V1)),by="pos_in_uniprot"]
+ohm_to_as_averaged<-ohm_to_as[,.(site_averaged_ddG=mean(`mean_kcal/mol`),
+              ACI=mean(V1)),by="pos_in_uniprot"]
+
+ggplot(ohm_to_anp_averaged)+
+  geom_point(aes(x=site_averaged_ddG,y=ACI))+
+  ggtitle("ANP as reference point")+
+  ylab("Ohm allosteric coupling intensity (ACI)")
+ggsave("output_files/FigureS7a_ohm_vs_dms_anp.pdf")
+
+
+ggplot(ohm_to_as_averaged[ACI>0,])+
+  geom_point(aes(x=site_averaged_ddG,y=ACI))+
+  ggtitle("active site as reference point")+
+  ylab("Ohm allosteric coupling intensity (ACI)")
+ggsave("output_files/FigureS7b_ohm_vs_dms_as.pdf")
+
+```
+
+
+```{r map pockets to kinase atlas pockets}
+
+
+#map pockets to kinase atlas pockets - how good of a mapping can we get? (not good - better the 2nd strategy of scoring these pockets with DMS weights and comparing afterwards)
+
+kinase_atlas_pockets<-fread("../52_final_SRC_paper/5_Supplementary_tables/Supplementary_table_3_Src_surface_pocket_summary.txt")
+
+kinase_atlas_pockets$pocket_residue_vector<-lapply(kinase_atlas_pockets$pocket_residue,
+                                                   FUN = function(string){
+                                                     return(as.numeric(strsplit(string,",")[[1]]))
+                                                   })
+kinase_atlas_pockets$pocket_residue_vector_numeric<-lapply(kinase_atlas_pockets$pocket_residue_vector,
+                                                   FUN = function(list){
+                                                     return(list[[1]])
+                                                   })
+
+
+for (pocket in unique(passer_pockets$pocket_number)){
+
+  query_residues<-passer_pockets[pocket_number==pocket,]$residue
+
+  for (kin_atlas_pocket in seq(1:28)){
+
+    target_residues<-as.numeric(unlist(kinase_atlas_pockets[pocket==kin_atlas_pocket,]$pocket_residue_vector)+3)
+    overlap_coeff<-length(which(query_residues %in% target_residues))/min(c(length(query_residues),length(target_residues)))
+    if (overlap_coeff>0 & kin_atlas_pocket %in% c(10,13,7,23,24)){
+    print(c(pocket,kin_atlas_pocket,overlap_coeff))
+  }}
+
+}
+
+#FL allosite pockets
+#0 --> P10 (ATP)
+#1 --> P9 (least allosteric in our data lol)
+#2 --> P13 (ATP)
+
+#KD allosite pockets
+#0 --> P10 (ATP)
+#1 --> P13 (ATP)
+#2 --> P12 (MPP, not allosteric)
+
+#fpocket pockets
+
+kin_atlas_pocket<-13
+pocket<-1
+
+```

@@ -1,7 +1,7 @@
 ---
 title: "03_Figure3"
 author: "Toni Beltran"
-date: "19/11/2023"
+date: "18/10/2023"
 output: html_document
 ---
 
@@ -12,15 +12,13 @@ library(data.table)
 library(scales)
 library(gplots)
 
-base_dir="/path/to/your/scripts"
-
+base_dir=""
 setwd(base_dir)
 
+weights_flkin_sand_activity<-fread("./analysis_files/MoCHI_weights/3state_FL_weights_Activity.txt")
+weights_flkin_sand_abundance<-fread("./analysis_files/MoCHI_weights/3state_FL_weights_Folding.txt")
 
-weights_kdkin_ab_activity<-fread("analysis_files/MoCHI_weights/3state_KD_weights_Activity.txt")
-weights_kdkin_ab_abundance<-fread("analysis_files/MoCHI_weights/3state_KD_weights_Folding.txt")
-
-src_annotation<-fread("analysis_files/20220620_c-SRC_annotations.txt") 
+src_annotation<-fread("./analysis_files/20220620_c-SRC_annotations.txt") 
 src_annotation[position>523,KD_lobe:="C-terminal tail"]
 src_annotation[position>267 & position<270,KD_lobe:="N-lobe"]
 
@@ -28,6 +26,7 @@ src_annotation$KD_lobe<-factor(src_annotation$KD_lobe,
                                levels=c("N-lobe","hinge region","C-lobe","C-terminal tail"))
 
 src_annotation[position<275,`secondary_structure_KD_refs1,2`:="beta1 loop"]
+table(src_annotation$`secondary_structure_KD_refs1,2`)
 
 src_annotation$secondary_structure<-factor(src_annotation$`secondary_structure_KD_refs1,2`,
                                            levels=c("beta1 loop","beta1","beta1-beta2 turn","beta2","beta2-beta3 turn",
@@ -57,7 +56,7 @@ src_annotation[position>276 & position<285,cat_regions_sub:="ATP binding - G-Loo
 
 
 
-src_KD_sasa<-fread("analysis_files/2SRC_KD.pdb.rsa.naccess.form")
+src_KD_sasa<-fread("./analysis_files/2SRC_KD.pdb.rsa.naccess.form")
 
 colnames(src_KD_sasa)<-c("RES","wt_aa","chain","pos","sasa_all","rsasa_all","sasa_sidechain","rsasa_sidechain","sasa_mainchain","rsasa_mainchain","sasa_nonpolar","rsasa_nonpolar","sasa_polar","rsasa_polar")
 src_KD_sasa[,pos:=pos+3]
@@ -66,45 +65,45 @@ src_KD_sasa[rsasa_all>=25,core:="surface"]
 table(src_KD_sasa[pos>267,]$core)
 
 
-weights_kdkin_ab_abundance[,pos_in_uniprot:=Pos_ref+267]
-weights_kdkin_ab_activity[,pos_in_uniprot:=Pos_ref+267]
+weights_flkin_sand_abundance[,pos_in_uniprot:=Pos_ref+267]
+weights_flkin_sand_activity[,pos_in_uniprot:=Pos_ref+267]
 
 
-weights_kdkin_ab_abundance_sasa<-merge(weights_kdkin_ab_abundance,src_KD_sasa,
+weights_flkin_sand_abundance_sasa<-merge(weights_flkin_sand_abundance,src_KD_sasa,
                                          by.x = "pos_in_uniprot",
                                          by.y = "pos",all.x = TRUE)
-weights_kdkin_ab_abundance_sasa_anno<-merge(weights_kdkin_ab_abundance_sasa,src_annotation,
+weights_flkin_sand_abundance_sasa_anno<-merge(weights_flkin_sand_abundance_sasa,src_annotation,
                                          by.x = "pos_in_uniprot",
                                          by.y = "position",all.x = TRUE)
-weights_kdkin_ab_abundance_sasa_anno<-weights_kdkin_ab_abundance_sasa_anno[id!="WT",]
+weights_flkin_sand_abundance_sasa_anno<-weights_flkin_sand_abundance_sasa_anno[id!="WT",]
 
 
 
-weights_kdkin_ab_activity_sasa<-merge(weights_kdkin_ab_activity,src_KD_sasa,
+weights_flkin_sand_activity_sasa<-merge(weights_flkin_sand_activity,src_KD_sasa,
                                          by.x = "pos_in_uniprot",
                                          by.y = "pos",all.x = TRUE)
-weights_kdkin_ab_activity_sasa_anno<-merge(weights_kdkin_ab_activity_sasa,src_annotation,
+weights_flkin_sand_activity_sasa_anno<-merge(weights_flkin_sand_activity_sasa,src_annotation,
                                          by.x = "pos_in_uniprot",
                                          by.y = "position",all.x = TRUE)
-weights_kdkin_ab_activity_sasa_anno<-weights_kdkin_ab_activity_sasa_anno[id!="WT",]
+weights_flkin_sand_activity_sasa_anno<-weights_flkin_sand_activity_sasa_anno[id!="WT",]
 
 #add surface annotation to Y530 (didn't get assigned because in the structure is phosphorylated)
-weights_kdkin_ab_abundance_sasa_anno[KD_lobe=="C-terminal tail",core:="surface"]
-weights_kdkin_ab_activity_sasa_anno[KD_lobe=="C-terminal tail",core:="surface"]
+weights_flkin_sand_abundance_sasa_anno[KD_lobe=="C-terminal tail",core:="surface"]
+weights_flkin_sand_activity_sasa_anno[KD_lobe=="C-terminal tail",core:="surface"]
 
 #add mut_aa 
-weights_kdkin_ab_abundance_sasa_anno$mut_aa<-unlist(lapply(weights_kdkin_ab_abundance_sasa_anno$id,FUN = function(string){
+weights_flkin_sand_abundance_sasa_anno$mut_aa<-unlist(lapply(weights_flkin_sand_abundance_sasa_anno$id,FUN = function(string){
   return(substr(string,nchar(string),nchar(string)))}))
-weights_kdkin_ab_abundance_sasa_anno$wt_aa<-unlist(lapply(weights_kdkin_ab_abundance_sasa_anno$id,FUN = function(string){
+weights_flkin_sand_abundance_sasa_anno$wt_aa<-unlist(lapply(weights_flkin_sand_abundance_sasa_anno$id,FUN = function(string){
   return(substr(string,1,1))}))
 
-weights_kdkin_ab_activity_sasa_anno$mut_aa<-unlist(lapply(weights_kdkin_ab_activity_sasa_anno$id,FUN = function(string){
+weights_flkin_sand_activity_sasa_anno$mut_aa<-unlist(lapply(weights_flkin_sand_activity_sasa_anno$id,FUN = function(string){
   return(substr(string,nchar(string),nchar(string)))}))
-weights_kdkin_ab_activity_sasa_anno$wt_aa<-unlist(lapply(weights_kdkin_ab_activity_sasa_anno$id,FUN = function(string){
+weights_flkin_sand_activity_sasa_anno$wt_aa<-unlist(lapply(weights_flkin_sand_activity_sasa_anno$id,FUN = function(string){
   return(substr(string,1,1))}))
 
-weights_kdkin_ab_abundance_sasa_anno$mut_aa<-factor(weights_kdkin_ab_abundance_sasa_anno$mut_aa,levels=c("S","T","N","Q","D","E","K","R","H","G","P","C","M","A","L","I","V","F","Y","W"))
-weights_kdkin_ab_activity_sasa_anno$mut_aa<-factor(weights_kdkin_ab_activity_sasa_anno$mut_aa,levels=c("S","T","N","Q","D","E","K","R","H","G","P","C","M","A","L","I","V","F","Y","W"))
+weights_flkin_sand_abundance_sasa_anno$mut_aa<-factor(weights_flkin_sand_abundance_sasa_anno$mut_aa,levels=c("S","T","N","Q","D","E","K","R","H","G","P","C","M","A","L","I","V","F","Y","W"))
+weights_flkin_sand_activity_sasa_anno$mut_aa<-factor(weights_flkin_sand_activity_sasa_anno$mut_aa,levels=c("S","T","N","Q","D","E","K","R","H","G","P","C","M","A","L","I","V","F","Y","W"))
 
 ```
 
@@ -112,128 +111,137 @@ weights_kdkin_ab_activity_sasa_anno$mut_aa<-factor(weights_kdkin_ab_activity_sas
 
 ```{r weights active site}
 
-ggplot(weights_kdkin_ab_activity_sasa_anno[cat_regions=="ATP binding",])+
+ggplot(weights_flkin_sand_activity_sasa_anno[cat_regions=="ATP binding",])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/Figure3b_ATPbinding_KD_activity.pdf")
+ggsave("./output_files/Figure3b_ATPbinding_FL_activity.pdf")
 
 
-ggplot(weights_kdkin_ab_activity_sasa_anno[cat_regions=="catalytic loop",])+
+ggplot(weights_flkin_sand_activity_sasa_anno[cat_regions=="catalytic loop",])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/Figure3b_catloop_KD_activity.pdf")
+ggsave("./output_files/Figure3b_catloop_FL_activity.pdf")
 
 
-ggplot(weights_kdkin_ab_activity_sasa_anno[cat_regions_sub=="activation segment - Mg2+ positioning loop",])+
+ggplot(weights_flkin_sand_activity_sasa_anno[cat_regions_sub=="activation segment - Mg2+ positioning loop",])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/Figure3b_mg2_KD_activity.pdf")
+ggsave("./output_files/Figure3b_mg2_FL_activity.pdf")
 
 
-ggplot(weights_kdkin_ab_activity_sasa_anno[cat_regions_sub=="activation segment - alphaEF/substrate binding",])+
+ggplot(weights_flkin_sand_activity_sasa_anno[cat_regions_sub=="activation segment - alphaEF/substrate binding",])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/Figure3b_substratepositioning_loop_KD_activity.pdf")
+ggsave("./output_files/Figure3b_substratepositioning_loop_FL_activity.pdf")
+
 
 ```
+
 
 #allosteric sites
 
 ```{r major allosteric sites}
 
-weights_kdkin_ab_activity_sasa_anno[,z_twotailed:=(abs(`mean_kcal/mol`)-(0.5))/`std_kcal/mol`]
-weights_kdkin_ab_activity_sasa_anno[,p_twotailed:=2*(1-pnorm(z_twotailed))]
-weights_kdkin_ab_activity_sasa_anno[,fdr_twotailed:=p.adjust(p_twotailed,method = "fdr")]
-ggplot(weights_kdkin_ab_activity_sasa_anno)+
+weights_flkin_sand_activity_sasa_anno[,z_twotailed:=(abs(`mean_kcal/mol`)-(0.5))/`std_kcal/mol`]
+weights_flkin_sand_activity_sasa_anno[,p_twotailed:=2*(1-pnorm(z_twotailed))]
+weights_flkin_sand_activity_sasa_anno[,fdr_twotailed:=p.adjust(p_twotailed,method = "fdr")]
+ggplot(weights_flkin_sand_activity_sasa_anno)+
   geom_histogram(aes(x=p_twotailed))
 
-weights_kdkin_ab_activity_sasa_anno[,class:="no change"]
-weights_kdkin_ab_activity_sasa_anno[fdr_twotailed<0.1 & `mean_kcal/mol`<0.5,class:="activating"]
-weights_kdkin_ab_activity_sasa_anno[fdr_twotailed<0.1 & `mean_kcal/mol`>0.5,class:="inactivating"]
+weights_flkin_sand_activity_sasa_anno[,class:="no change"]
+weights_flkin_sand_activity_sasa_anno[fdr_twotailed<0.1 & `mean_kcal/mol`<0.5,class:="activating"]
+weights_flkin_sand_activity_sasa_anno[fdr_twotailed<0.1 & `mean_kcal/mol`>0.5,class:="inactivating"]
 
-weights_kdkin_ab_activity_sasa_anno$class<-factor(weights_kdkin_ab_activity_sasa_anno$class,
+weights_flkin_sand_activity_sasa_anno$class<-factor(weights_flkin_sand_activity_sasa_anno$class,
                                                   levels=c("inactivating","no change","activating"))
 
-table(weights_kdkin_ab_activity_sasa_anno$class)
-sum(table(weights_kdkin_ab_activity_sasa_anno$class))
+table(weights_flkin_sand_activity_sasa_anno$class)
+sum(table(weights_flkin_sand_activity_sasa_anno$class))
 
-length(unique(weights_kdkin_ab_activity_sasa_anno[class !="no change",]$pos_in_uniprot))
+length(unique(weights_flkin_sand_activity_sasa_anno[class !="no change",]$pos_in_uniprot))
 
 
-active_site<-c(277,279,281,282,284,296,298,389,391,394,396,407,428)
+active_site_residues<-c(277,279,281,282,284,296,298,389,391,394,396,407,428)
 
 #enrichment in active site
 #direct contacts
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% active_site,]$class)
-test<-fisher.test(cbind(c(3884-22,1227-225),c(22,225)))
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% active_site_residues,]$class)
+test<-fisher.test(cbind(c(4041+109-38,961-209),c(38,209)))
 test$p.value
 test$estimate
 #atp binding
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% c(277:285,287,295:298),]$class)
-test<-fisher.test(cbind(c(3884-127,1227-139),c(127,139)))
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% c(277:285,287,295:298),]$class)
+test<-fisher.test(cbind(c(4041+109-156,961-139),c(156,110)))
 test$p.value
 test$estimate
 #cat loop
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% c(385:397),]$class)
-test<-fisher.test(cbind(c(3884-93,1227-154),c(93,154)))
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% c(385:397),]$class)
+test<-fisher.test(cbind(c(4041+109-113,961-134),c(113,134)))
 test$p.value
 test$estimate
 #mg2 loop
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% c(407:411),]$class)
-test<-fisher.test(cbind(c(3884-9,1227-86),c(9,86)))
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% c(407:411),]$class)
+test<-fisher.test(cbind(c(4041+109-8,961-87),c(8,87)))
 test$p.value
 test$estimate
 #substrate pos loop
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% c(427:435),]$class)
-test<-fisher.test(cbind(c(3884-47,1227-124),c(46,124)))
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% c(427:435),]$class)
+test<-fisher.test(cbind(c(4041+109-70,961-101),c(70,101)))
 test$p.value
 test$estimate
 
 #mutations outside active site
 `%notin%` <- Negate(`%in%`)
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %notin% active_site,]$class)
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %notin% active_site_residues,]$class)
+
+length(unique(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %notin% active_site_residues & class!="no change",]$pos_in_uniprot))
 
 #major allosteric sites
-mean_ddGas<-weights_kdkin_ab_activity_sasa_anno[, .(mean_ddGa = mean(abs(`mean_kcal/mol`))), by = pos_in_uniprot]
+mean_ddGas<-weights_flkin_sand_activity_sasa_anno[, .(mean_ddGa = mean(abs(`mean_kcal/mol`))), by = pos_in_uniprot]
 mean_ddGas[,active_site:=FALSE]
-mean_ddGas[pos_in_uniprot %in% active_site, active_site:=TRUE]
+mean_ddGas[pos_in_uniprot %in% active_site_residues, active_site:=TRUE]
 
 #enrichment by residue
-muts_by_residue<-weights_kdkin_ab_activity_sasa_anno[, .(activating = length(which(class=="activating")),
+muts_by_residue<-weights_flkin_sand_activity_sasa_anno[, .(activating = length(which(class=="activating")),
                                                          inactivating = length(which(class=="inactivating"))), by = pos_in_uniprot]
 muts_by_residue[,change:=activating+inactivating]
 muts_by_residue[,no_change:=19-activating-inactivating]
 muts_by_residue[,active_site:=FALSE]
-muts_by_residue[pos_in_uniprot %in% active_site, active_site:=TRUE]
+muts_by_residue[pos_in_uniprot %in% active_site_residues, active_site:=TRUE]
+
+table(weights_flkin_sand_activity_sasa_anno$class)
 
 #both activating and inactivating
 muts_by_residue$fet_or<-unlist(apply(muts_by_residue,MARGIN=1,FUN=function(row){
   change<-as.numeric(row[4])
   no_change<-as.numeric(row[5])
-  test<-fisher.test(cbind(c(3838-no_change,1273-change),c(no_change,change)))
+  test<-fisher.test(cbind(c(4041-no_change,961+109-change),c(no_change,change)))
   return(test$estimate)
 }))
 muts_by_residue$fet_p<-unlist(apply(muts_by_residue,MARGIN=1,FUN=function(row){
   change<-as.numeric(row[4])
   no_change<-as.numeric(row[5])
-  test<-fisher.test(cbind(c(3838-no_change,1273-change),c(no_change,change)))
+  test<-fisher.test(cbind(c(4041-no_change,961+109-change),c(no_change,change)))
   return(test$p.value)
 }))
 muts_by_residue[,fet_fdr:=p.adjust(fet_p,method="fdr")]
 
 table(muts_by_residue[fet_fdr<0.1 & fet_or>2,]$active_site)
+table(muts_by_residue[fet_fdr<0.1 & fet_or>2 & pos_in_uniprot<347,]$active_site)
+table(muts_by_residue[fet_fdr<0.1 & fet_or>2 & pos_in_uniprot>347,]$active_site)
+
 
 #add ORs of enrichment to structure
 library(bio3d)
@@ -255,16 +263,16 @@ from_table_to_structure<-function(data,offset,title,pdb_id){
   else{
   structure$atom$b[structure$atom$resno==i &  structure$atom$chain=="A"]<-log2(data[Pos==i,]$fet_or+0.01)
   }}
-  write.pdb(structure,file=paste0("output_files/annotated_structures_",pdb_id,"_",title,"_OR_ddGachange.pdb",collapse=""))
+  write.pdb(structure,file=paste0("./output_files/annotated_structures_",pdb_id,"_",title,"_OR_ddGachange.pdb",collapse=""))
 }
 
 
-from_table_to_structure(muts_by_residue,-3,"3state_KDkin_KDab","2src")
-from_table_to_structure(muts_by_residue,-3,"3state_KDkin_KDab","1Y57")
+from_table_to_structure(muts_by_residue,-3,"3state_FLkin_FLsand","2src")
+from_table_to_structure(muts_by_residue,-3,"3state_FLkin_FLsand","1Y57")
 
 #distance plot
-distance_to_catD<-fread("analysis_files/2SRC.form.CAT.tab.pdb_pairwise_distances.txt")
-distance_to_atp<-fread("analysis_files/2SRC.form.ligand.tab.pdb_pairwise_distances.txt")
+distance_to_catD<-fread("./analysis_files/2SRC.form.CAT.tab.pdb_pairwise_distances.txt")
+distance_to_atp<-fread("./analysis_files/2SRC.form.ligand.tab.pdb_pairwise_distances.txt")
 
 mindistances_by_residue_to_catD<-data.table(aggregate(distance~kinase_resno,FUN=min,data=distance_to_catD[mol_elety %in% c("OD1","OD2"),]))
 colnames(mindistances_by_residue_to_catD)[2]<-"distance_catD"
@@ -272,7 +280,6 @@ mindistances_by_residue_to_catD[,pos_in_uniprot:=kinase_resno+3]
 mindistances_by_residue_to_atp<-data.table(aggregate(distance~kinase_resno,FUN=min,data=distance_to_atp))
 colnames(mindistances_by_residue_to_atp)[2]<-"distance_ATP"
 mindistances_by_residue_to_atp[,pos_in_uniprot:=kinase_resno+3]
-
 
 #merge all mutation effects with distances
 
@@ -283,14 +290,13 @@ mean_ddGas_distance$mindistance<-unlist(apply(mean_ddGas_distance,MARGIN = 1,FUN
   return(min(as.numeric(row[c(4:5)])))
 }))
 
-
 mean_ddGas_distance<-merge(mean_ddGas_distance,muts_by_residue,by=c("pos_in_uniprot","active_site"))
 
 mean_ddGas_distance[fet_fdr<0.1 & fet_or>2 & active_site==TRUE,res_type:="active site"]
 mean_ddGas_distance[fet_fdr<0.1 & fet_or>2 & active_site==FALSE & mindistance<10,res_type:="allosteric_secondshell"]
 mean_ddGas_distance[fet_fdr<0.1 & fet_or>2 & active_site==FALSE & mindistance>10,res_type:="allosteric"]
 
-sd_ddGas<-weights_kdkin_ab_activity_sasa_anno[, .(sd_ddGa = sd(abs(`mean_kcal/mol`))), by = pos_in_uniprot]
+sd_ddGas<-weights_flkin_sand_activity_sasa_anno[, .(sd_ddGa = sd(abs(`mean_kcal/mol`))), by = pos_in_uniprot]
 sd_ddGas[,active_site:=FALSE]
 sd_ddGas[pos_in_uniprot %in% active_site, active_site:=TRUE]
 
@@ -302,7 +308,7 @@ ggplot(mean_ddGas_distance_sd)+
   coord_cartesian(xlim=c(0,25))+
   scale_color_manual(values =c("red","orange","salmon"))+
   theme_classic()
-ggsave("output_files/Figure3e_mean_ddGas_vs_distance.pdf")
+ggsave("./output_files/Figure3e_mean_ddGas_vs_distance.pdf")
 
 table(mean_ddGas_distance[pos_in_uniprot<342]$res_type)
 table(mean_ddGas_distance[pos_in_uniprot>346]$res_type)
@@ -311,30 +317,31 @@ table(mean_ddGas_distance$res_type)
 #foda network
 foda_network<-c(313,317,328,298,387,407,408,409,412,391,430,431,457,465)
 table(mean_ddGas_distance[pos_in_uniprot %in% foda_network,]$res_type)
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% foda_network,]$class)
-test<-fisher.test(cbind(c(3838-37,1273-229),c(37,229)))
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% foda_network,]$class)
+test<-fisher.test(cbind(c(4041+109-59,961-207),c(59,207)))
 test$p.value
 
 table(muts_by_residue[pos_in_uniprot %in% foda_network & fet_or>6,]$active_site)
 table(muts_by_residue[pos_in_uniprot %in% foda_network & fet_fdr<0.1,]$active_site)
 
 foda_network_noAS<-c(313,317,328,387,408,409,412,430,431,457,465)
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% foda_network_noAS,]$class)
-test<-fisher.test(cbind(c(3838-30,1273-179),c(30,179)))
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% foda_network_noAS,]$class)
+test<-fisher.test(cbind(c(4041+109-54,961-155),c(54,155)))
 test$p.value
 
 foda_network_noAS_nosecondshell<-mean_ddGas_distance[pos_in_uniprot %in% foda_network & res_type=="allosteric",]$pos_in_uniprot
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% foda_network_noAS_nosecondshell,]$class)
-test<-fisher.test(cbind(c(3838-13,1273-44),c(13,44)))
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% foda_network_noAS_nosecondshell,]$class)
+test<-fisher.test(cbind(c(4041+109-24,961-24),c(14,24)))
 test$p.value
 
-ggplot(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% foda_network,])+
+ggplot(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% foda_network,])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/Figure3f_fodanetwork_KD_activity.pdf")
+ggsave("./output_files/Figure3f_fodanetwork_FL_activity.pdf")
+
 
 ```
 
@@ -343,21 +350,21 @@ ggsave("output_files/Figure3f_fodanetwork_KD_activity.pdf")
 ```{r inactivating mutations}
 
 #inactivating
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot<342 & !(pos_in_uniprot %in% active_site),]$class)
-table(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot>346 & !(pos_in_uniprot %in%  active_site),]$class)
-fisher.test(cbind(c(280,974+19),c(710,2748+38)))
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot<342 & !(pos_in_uniprot %in% active_site),]$class)
+table(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot>346 & !(pos_in_uniprot %in%  active_site),]$class)
+fisher.test(cbind(c(163,1097+13),c(581,2819+96)))
 
 
 muts_by_residue$fet_or_inact<-unlist(apply(muts_by_residue,MARGIN=1,FUN=function(row){
   inact<-as.numeric(row[3])
   no_inact<-19-inact
-  test<-fisher.test(cbind(c(3884-no_inact,1227-inact),c(no_inact,inact)))
+  test<-fisher.test(cbind(c(4041+109-no_inact,961-inact),c(no_inact,inact)))
   return(test$estimate)
 }))
 muts_by_residue$fet_p_inact<-unlist(apply(muts_by_residue,MARGIN=1,FUN=function(row){
   inact<-as.numeric(row[3])
   no_inact<-19-inact
-  test<-fisher.test(cbind(c(3884-no_inact,1227-inact),c(no_inact,inact)))
+  test<-fisher.test(cbind(c(4041+109-no_inact,961-inact),c(no_inact,inact)))
   return(test$p.value)
 }))
 muts_by_residue[,fet_fdr_inact:=p.adjust(fet_p_inact,method="fdr")]
@@ -369,8 +376,8 @@ muts_by_residue[fet_fdr_inact<0.1 & fet_or_inact>2,]$pos_in_uniprot %in% muts_by
 
 #enrichment by secondary structure group
 #fisher's exact test
-enrichment_by_2ary_structure<- data.table(rbind(table(weights_kdkin_ab_activity_sasa_anno$secondary_structure,weights_kdkin_ab_activity_sasa_anno$class)))
-enrichment_by_2ary_structure$secondary_structure<-rownames(rbind(table(weights_kdkin_ab_activity_sasa_anno$secondary_structure,weights_kdkin_ab_activity_sasa_anno$class)))
+enrichment_by_2ary_structure<- data.table(rbind(table(weights_flkin_sand_activity_sasa_anno$secondary_structure,weights_flkin_sand_activity_sasa_anno$class)))
+enrichment_by_2ary_structure$secondary_structure<-rownames(rbind(table(weights_flkin_sand_activity_sasa_anno$secondary_structure,weights_flkin_sand_activity_sasa_anno$class)))
 enrichment_by_2ary_structure$not_activating<-enrichment_by_2ary_structure$inactivating+enrichment_by_2ary_structure$`no change`
 enrichment_by_2ary_structure$not_inactivating<-enrichment_by_2ary_structure$activating+enrichment_by_2ary_structure$`no change`
 
@@ -402,11 +409,11 @@ enrichment_by_2ary_structure[,fet_activating_FDR:=p.adjust(fet_activating_p,meth
 enrichment_by_2ary_structure[fet_activating_FDR<0.1 & fet_activating_OR>1,]                             
 enrichment_by_2ary_structure[fet_inactivating_FDR<0.1 & fet_inactivating_OR>1,]                             
 
-ggplot(weights_kdkin_ab_activity_sasa_anno)+
+ggplot(weights_flkin_sand_activity_sasa_anno)+
   geom_bar(aes(y=secondary_structure,fill=class))+
   theme_classic()+
   scale_fill_manual(values=c("red","grey","blue"))
-ggsave("output_files/Figure3g_mutation_classes_KD.pdf")
+ggsave("./output_files/Figure3g_mutation_classes_FL.pdf")
 
 
 ```
@@ -415,47 +422,47 @@ ggsave("output_files/Figure3g_mutation_classes_KD.pdf")
 ```{r weights spines and activation loop}
 
 
-ggplot(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% c(328,317,408,387),])+
+ggplot(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% c(328,317,408,387),])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/Figure3i_Rspine_KD_activity.pdf")
+ggsave("./output_files/Figure3h_Rspine_FL_activity.pdf")
 
-ggplot(weights_kdkin_ab_abundance_sasa_anno[pos_in_uniprot %in% c(328,317,408,387),])+
+ggplot(weights_flkin_sand_abundance_sasa_anno[pos_in_uniprot %in% c(328,317,408,387),])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_abundance_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_abundance_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_abundance_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_abundance_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/Figure3j_Rspine_KD_abundance.pdf")
+ggsave("./output_files/Figure3i_Rspine_FL_abundance.pdf")
   
 
-ggplot(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% c(284,296,284,395,396,397,349,454,458),])+
+ggplot(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% c(284,296,284,395,396,397,349,454,458),])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/Figure3i_Cspine_KD_activity.pdf")
+ggsave("./output_files/Figure3h_Cspine_FL_activity.pdf")
 
-ggplot(weights_kdkin_ab_abundance_sasa_anno[pos_in_uniprot %in% c(284,296,284,395,396,397,349,454,458),])+
+ggplot(weights_flkin_sand_abundance_sasa_anno[pos_in_uniprot %in% c(284,296,284,395,396,397,349,454,458),])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_abundance_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_abundance_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_abundance_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_abundance_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_abundance_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/Figure3j_Cspine_KD_abundance.pdf")
+ggsave("./output_files/Figure3i_Cspine_FL_abundance.pdf")
 
 
-ggplot(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% 406:435,])+
+ggplot(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% 406:435,])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/Figure3h_activationloop_activity.pdf")
+ggsave("./output_files/Figure3j_activationloop_activity_FL.pdf")
 
 
 
@@ -470,31 +477,77 @@ ggsave("output_files/Figure3h_activationloop_activity.pdf")
 muts_by_residue$fet_or_act<-unlist(apply(muts_by_residue,MARGIN=1,FUN=function(row){
   act<-as.numeric(row[2])
   no_act<-19-act
-  test<-fisher.test(cbind(c(5065-no_act,46-act),c(no_act,act)))
+  test<-fisher.test(cbind(c(4041+961-no_act,109-act),c(no_act,act)))
   return(test$estimate)
 }))
 muts_by_residue$fet_p_act<-unlist(apply(muts_by_residue,MARGIN=1,FUN=function(row){
   act<-as.numeric(row[2])
   no_act<-19-act
-  test<-fisher.test(cbind(c(5065-no_act,46-act),c(no_act,act)))
+  test<-fisher.test(cbind(c(4041+961-no_act,109-act),c(no_act,act)))
   return(test$p.value)
 }))
 muts_by_residue[,fet_fdr_act:=p.adjust(fet_p_act,method="fdr")]
 
-table(muts_by_residue[fet_or_act>2 & fet_fdr_act<0.1,]$active_site)
+table(muts_by_residue[fet_or_act>1 & fet_p_act<0.1,]$active_site)
+
 
 act_sites_or1_fdr0.1<-muts_by_residue[fet_or_act>2 & fet_fdr_act<0.1,]$pos_in_uniprot
 act_sites_or1_p0.05<-muts_by_residue[fet_or_act>2 & fet_p_act<0.05,]$pos_in_uniprot
 
-ggplot(weights_kdkin_ab_activity_sasa_anno[pos_in_uniprot %in% act_sites_or1_p0.05,])+
+ggplot(weights_flkin_sand_activity_sasa_anno[pos_in_uniprot %in% act_sites_or1_p0.05,])+
   geom_tile(aes(x=factor(pos_in_uniprot),y=mut_aa,fill=`mean_kcal/mol`))+
     scale_fill_gradientn(colours = c("blue","lightgrey","red"), 
-                         values = rescale(c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`))),
-                         guide = "colorbar", limits=c(min(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`),max(weights_kdkin_ab_activity_sasa_anno$`mean_kcal/mol`)))+
+                         values = rescale(c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),0,max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`))),
+                         guide = "colorbar", limits=c(min(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`),max(weights_flkin_sand_activity_sasa_anno$`mean_kcal/mol`)))+
   theme_classic()
-ggsave("output_files/FigureS3_activatingsites_KD_activity.pdf")
+ggsave("./output_files/FigureS4_activatingsites_FL_activity.pdf")
+
+
+
 
 ```
 
 
+```{r comparing stability and activity}
+
+
+
+merged_ddgs_fl<-merge(weights_flkin_sand_abundance,
+                      weights_flkin_sand_activity,
+      by="id")
+
+
+merged_ddgs_fl[`mean_kcal/mol.x`>0.5,]
+merged_ddgs_fl[`mean_kcal/mol.y`>0.5,]
+
+merged_ddgs_fl[,fdr_destab:=p.adjust(1-pnorm((`mean_kcal/mol.x`-0.5)/(`std_kcal/mol.x`)),method="fdr")]
+merged_ddgs_fl[,fdr_inact:=p.adjust(1-pnorm((`mean_kcal/mol.y`-0.5)/(`std_kcal/mol.y`)),method="fdr")]
+
+merged_ddgs_fl[,fdr_stab:=p.adjust(pnorm((`mean_kcal/mol.x`-(-0.5))/(`std_kcal/mol.x`)),method="fdr")]
+nrow(merged_ddgs_fl[fdr_stab<0.1,])
+
+nrow(merged_ddgs_fl[fdr_destab<0.1,])
+nrow(merged_ddgs_fl[fdr_inact<0.1,])
+nrow(merged_ddgs_fl[fdr_inact<0.1 & fdr_destab<0.1,])
+
+merged_ddgs_fl[fdr_destab<0.1,class:="destabilizing"]
+merged_ddgs_fl[fdr_inact<0.1,class:="inactivating"]
+merged_ddgs_fl[fdr_destab<0.1 & fdr_inact<0.1,class:="both"]
+
+ggplot(merged_ddgs_fl)+
+  geom_point(aes(x=`mean_kcal/mol.x`,
+                 y=`mean_kcal/mol.y`,
+                 col=class))+
+  theme_classic()+
+  xlab("ddGf")+
+  ylab("ddGa")
+ggsave("./output_files/Figure_S3_folding_vs_activity.pdf")
+
+table(merged_ddgs_fl$class)
+
+
+
+
+
+```
 
